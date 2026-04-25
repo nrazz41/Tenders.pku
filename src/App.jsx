@@ -52,7 +52,7 @@ function App() {
         {/* Halaman-halaman umum (tanpa layout utama) */}
         <Route element={<AuthLayout />}>
           <Route path="/" element={<HalamanUtama />} />
-          <Route path="/signin" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<RegisterPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/form-pengaduan" element={<FormPengaduan />} />

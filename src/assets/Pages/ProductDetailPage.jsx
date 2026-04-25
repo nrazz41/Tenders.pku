@@ -1,252 +1,404 @@
-// src/pages/ProductDetailPage.jsx
+// src/Pages/ProductDetailPage.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useCart } from "../contexts/CartContext";
-
-import ProductDetailsTabs from "../components/ProductDetailsTabs";
-import ProductReviews from "../components/ProductReviews";
-
+import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 import {
   FaStar,
   FaChevronRight,
-  FaHeart,
-  FaCartShopping,
-} from "react-icons/fa6";
-import { FaShieldAlt } from "react-icons/fa";
+  FaMinus,
+  FaPlus,
+  FaFire,
+  FaClock,
+  FaTruck,
+  FaShieldAlt,
+} from "react-icons/fa";
+import { ShoppingCart } from "lucide-react";
+import { FiHeart } from "react-icons/fi";
 
-import allProductsData from "../data/productsData.js";
+const API_URL = "http://localhost/tenders_pku_api/api";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addItemToCart } = useCart();
-
-  const product = allProductsData.find((p) => p.id.toString() === id);
-
+  const { user, isAuthenticated } = useAuth();
+  
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [mainImage, setMainImage] = useState(
-    product?.mainImageUrl || product?.imageUrl || ""
-  );
+  const [mainImage, setMainImage] = useState("");
+  const [cartCount, setCartCount] = useState(0);
+  const [error, setError] = useState(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState("success");
 
+  // Fetch product from database
   useEffect(() => {
-    if (product) {
-      setMainImage(product.mainImageUrl || product.imageUrl);
-    }
-  }, [product]);
+    fetchProduct();
+    fetchCartCount();
+  }, [id]);
 
-  if (!product) {
+  const fetchProduct = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API_URL}/products.php?id=${id}`);
+      console.log("Product data:", response.data);
+      
+      if (response.data.success && response.data.data) {
+        setProduct(response.data.data);
+        setMainImage(response.data.data.image_url || "/images/default-product.png");
+      } else {
+        setError("Produk tidak ditemukan");
+      }
+    } catch (error) {
+      console.error("Failed to fetch product:", error);
+      setError("Gagal memuat data produk");
+      
+      // Dummy data for testing
+      const dummyProduct = {
+        id: parseInt(id),
+        name: "Original Chicken Tender",
+        description: "Chicken tender juicy crispy dengan bumbu original yang gurih dan lezat. Disajikan dengan saus pilihan.",
+        price: 25000,
+        original_price: 30000,
+        category: "tender",
+        stock: 99,
+        is_popular: true,
+        spice_level: 1,
+        image_url: "/images/original-tender.png",
+      };
+      setProduct(dummyProduct);
+      setMainImage("/images/original-tender.png");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCartCount = async () => {
+    if (!user) return;
+    try {
+      const response = await axios.get(`${API_URL}/cart.php?action=count`, {
+        withCredentials: true
+      });
+      if (response.data.success) {
+        setCartCount(response.data.data?.count || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart count:", error);
+    }
+  };
+
+  const showAlert = (message, type = "success") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+    setTimeout(() => setShowPopup(false), 3000);
+  };
+
+  const formatCurrency = (value) => {
+    const number = Number(value ?? 0);
+    if (!isFinite(number) || isNaN(number)) return "Rp0";
+    return `Rp ${number.toLocaleString("id-ID")}`;
+  };
+
+  const getSpiceLevelText = (level) => {
+    if (level === 0) return "Tidak Pedas";
+    if (level === 1) return "Mild (Sedang)";
+    if (level === 2) return "Hot (Pedas)";
+    if (level === 3) return "Extreme Hot (Sangat Pedas!)";
+    return "Tidak Pedas";
+  };
+
+  const getSpiceIcon = (level) => {
+    if (level === 0) return "🌶️";
+    if (level === 1) return "🌶️";
+    if (level === 2) return "🌶️🌶️";
+    if (level === 3) return "🌶️🌶️🌶️🔥";
+    return "";
+  };
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      showAlert("Silakan login terlebih dahulu", "error");
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+    
+    try {
+      const response = await axios.post(`${API_URL}/cart.php`, {
+        product_id: product.id,
+        quantity: quantity,
+      }, { withCredentials: true });
+      
+      if (response.data.success) {
+        setCartCount(prev => prev + quantity);
+        showAlert(`${quantity} x ${product.name} ditambahkan ke keranjang!`, "success");
+        fetchCartCount();
+      } else {
+        showAlert(response.data.error || "Gagal menambahkan ke keranjang", "error");
+      }
+    } catch (error) {
+      console.error("Failed to add to cart:", error);
+      showAlert("Gagal menambahkan ke keranjang", "error");
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!user) {
+      showAlert("Silakan login terlebih dahulu", "error");
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+    
+    await handleAddToCart();
+    setTimeout(() => navigate("/cart"), 1000);
+  };
+
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">
-          Produk Tidak Ditemukan
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Maaf, produk yang Anda cari tidak ada.
-        </p>
-        <Link
-          to="/"
-          className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Kembali ke Beranda
-        </Link>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memuat detail produk...</p>
+        </div>
       </div>
     );
   }
 
-  // Fungsi format harga
-  const formatCurrency = (value) => {
-    const number = Number(value ?? 0);
-    if (!isFinite(number) || isNaN(number)) return "Rp0";
-    return number.toLocaleString("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    });
-  };
-
-  const prepareProductDataForCart = () => {
-    const shopId = product.shop?.id || "default_shop_id";
-    const shopName = product.shop?.name || "Toko Umum";
-    const isMall = product.shop?.isMall || false;
-    const currentPrice = product.currentPrice ?? product.price ?? 0;
-
-    return {
-      itemId: product.id.toString(),
-      name: product.name,
-      variant: product.options?.colors?.[0]?.name || "Default",
-      originalPrice: product.originalPrice ?? 0,
-      currentPrice,
-      imageUrl: product.mainImageUrl || product.imageUrl,
-      hasDiscount: product.discountPercent > 0,
-      discountPercent: product.discountPercent || 0,
-      shopId,
-      shopName,
-      isMall,
-    };
-  };
-
-  const handleAddToCart = () => {
-    const productData = prepareProductDataForCart();
-    addItemToCart(
-      productData,
-      productData.shopId,
-      productData.shopName,
-      productData.isMall,
-      quantity
+  if (error || !product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🍗</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Produk Tidak Ditemukan</h1>
+          <p className="text-gray-500 mb-6">{error || "Maaf, produk yang Anda cari tidak tersedia."}</p>
+          <Link to="/" className="px-6 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
     );
-    alert(`${quantity} produk ${product.name} berhasil ditambahkan ke keranjang!`);
-  };
+  }
 
-  const handleBuyNow = () => {
-    const productData = prepareProductDataForCart();
-    addItemToCart(
-      productData,
-      productData.shopId,
-      productData.shopName,
-      productData.isMall,
-      quantity
-    );
-    navigate("/checkout");
-  };
+  const discountPercent = product.original_price && product.original_price > product.price
+    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
+    : 0;
+
+  const subtotal = product.price * quantity;
+  const originalSubtotal = product.original_price ? product.original_price * quantity : null;
 
   return (
-    <div className="min-h-screen bg-gray-100 font-sans">
-      <div className="bg-gray-100 py-4 hidden sm:block">
-        <div className="container mx-auto px-4 text-xs text-gray-500 flex items-center">
-          <Link to="/" className="hover:text-[#E31E52]">Home</Link>
-          <FaChevronRight className="mx-2 text-[10px]" />
-          <span className="text-gray-900">{product.name.substring(0, 20)}...</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Popup Notification */}
+      {showPopup && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform animate-bounceIn border-t-8 border-green-500">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Berhasil!</h3>
+              <p className="text-gray-600">{popupMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Breadcrumb */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center text-sm text-gray-500">
+            <Link to="/" className="hover:text-orange-500">Home</Link>
+            <FaChevronRight className="mx-2 text-xs" />
+            <Link to="/menu" className="hover:text-orange-500">Menu</Link>
+            <FaChevronRight className="mx-2 text-xs" />
+            <span className="text-orange-500 font-medium">{product.name}</span>
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto p-4 sm:p-8 grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-        {/* Gambar & Thumbnail */}
-        <div className="col-span-1 lg:col-span-3 flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-1">
-              <div className="relative rounded-lg overflow-hidden border bg-white aspect-square mb-4">
-                <img
-                  src={mainImage || "https://via.placeholder.com/500x500?text=No+Image"}
-                  alt={product.name}
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute bottom-0 left-0 bg-black bg-opacity-60 text-white text-xs px-3 py-1.5 rounded-tr-lg">
-                  {product.options?.colors?.[0]?.name || "Tanpa Varian"}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Images */}
+          <div className="space-y-4">
+            <div className="relative bg-white rounded-2xl overflow-hidden border border-gray-200">
+              <img
+                src={mainImage}
+                alt={product.name}
+                className="w-full h-96 object-cover"
+                onError={(e) => {
+                  e.target.src = "/images/default-product.png";
+                }}
+              />
+              {product.is_popular && (
+                <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                  <FaFire /> Best Seller
                 </div>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {(product.thumbnailUrls || [product.imageUrl]).map((url, i) => (
-                  <div
-                    key={i}
-                    className={`flex-shrink-0 w-16 h-16 rounded-md border-2 overflow-hidden cursor-pointer ${
-                      url === mainImage
-                        ? "border-[#E31E52] ring-2 ring-[#E31E52]"
-                        : "border-gray-200 hover:border-gray-400"
-                    }`}
-                    onClick={() => setMainImage(url)}
-                  >
-                    <img src={url || "https://via.placeholder.com/64"} className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Detail Produk */}
-            <div className="col-span-1">
-              <h1 className="text-2xl font-bold mb-2 text-gray-900">{product.name}</h1>
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-                <span>Terjual {product.terjual || "0"}</span>
-                <span className="w-1 h-1 rounded-full bg-gray-400" />
-                <span className="flex items-center gap-1">
-                  <FaStar className="text-[#FFC107]" /> {product.rating || "0"} ({product.ratingCount || "0"})
-                </span>
-              </div>
-              <div className="flex items-end gap-3 mb-6">
-                <span className="text-4xl font-bold text-[#E31E52]">
-                  {formatCurrency(product.currentPrice ?? product.price)}
-                </span>
-                {product.discountPercent > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="bg-[#E31E52] bg-opacity-10 text-[#E31E52] font-bold px-1.5 py-0.5 rounded text-xs">
-                      {product.discountPercent}%
-                    </span>
-                    <span className="text-gray-500 line-through">
-                      {formatCurrency(product.originalPrice)}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
+              {discountPercent > 0 && (
+                <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                  -{discountPercent}%
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Tabs & Ulasan */}
-          <ProductDetailsTabs product={product} />
-          <ProductReviews product={product} />
-        </div>
-
-        {/* Panel Pembelian */}
-        <div className="col-span-1 lg:col-span-2 sticky top-4 lg:top-8 self-start flex flex-col gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="font-bold text-gray-800 mb-4">Atur jumlah</h3>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden h-10">
-                <button
-                  className="w-10 text-gray-500 text-xl hover:bg-gray-100"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                >
-                  –
-                </button>
-                <input
-                  type="text"
-                  value={quantity}
-                  readOnly
-                  className="w-12 text-center font-bold text-gray-800"
-                />
-                <button
-                  className="w-10 text-gray-500 text-xl hover:bg-gray-100"
-                  onClick={() => setQuantity((q) => q + 1)}
-                >
-                  +
-                </button>
+          {/* Right Column - Product Info */}
+          <div className="space-y-6">
+            {/* Title & Rating */}
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1 text-yellow-400">
+                  <FaStar />
+                  <FaStar />
+                  <FaStar />
+                  <FaStar />
+                  <FaStar />
+                  <span className="text-gray-600 ml-1">(4.9)</span>
+                </div>
+                <span className="text-gray-400">|</span>
+                <span className="text-gray-500">Terjual 1.2rb+</span>
               </div>
-              <span className="text-xs text-gray-500">
-                Stok: <b>{product.stock}</b>
-              </span>
             </div>
 
-            {/* Subtotal */}
-            <div className="flex justify-between mb-6">
-              <span className="text-sm text-gray-600">Subtotal</span>
-              <div className="text-right">
-                {product.discountPercent > 0 && (
-                  <span className="text-xs text-gray-500 line-through block">
-                    {formatCurrency((product.originalPrice ?? 0) * quantity)}
-                  </span>
+            {/* Price */}
+            <div className="bg-orange-50 rounded-2xl p-4">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-orange-600">
+                  {formatCurrency(product.price)}
+                </span>
+                {product.original_price && product.original_price > product.price && (
+                  <>
+                    <span className="text-gray-400 line-through text-lg">
+                      {formatCurrency(product.original_price)}
+                    </span>
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                      Hemat {discountPercent}%
+                    </span>
+                  </>
                 )}
-                <span className="text-2xl font-bold text-[#E31E52]">
-                  {formatCurrency((product.currentPrice ?? product.price ?? 0) * quantity)}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">Deskripsi</h3>
+              <p className="text-gray-600 leading-relaxed">
+                {product.description || "Chicken tender crispy dengan bumbu khas Nashville Hot Chicken. Disajikan dengan saus pilihan dan kentang goreng crispy."}
+              </p>
+            </div>
+
+            {/* Spice Level */}
+            {product.category === "tender" && (
+              <div className="flex items-center gap-4 py-3 border-t border-b border-gray-200">
+                <span className="font-semibold text-gray-800">Level Pedas:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{getSpiceIcon(product.spice_level || 1)}</span>
+                  <span className="text-gray-600">{getSpiceLevelText(product.spice_level || 1)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery Info */}
+            <div className="bg-gray-100 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <FaTruck className="text-orange-500" />
+                <span className="text-gray-600">Pengiriman via GoFood & ShopeeFood</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <FaClock className="text-orange-500" />
+                <span className="text-gray-600">Estimasi 15-30 menit</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <FaShieldAlt className="text-orange-500" />
+                <span className="text-gray-600">Garansi kebersihan & keamanan makanan</span>
+              </div>
+            </div>
+
+            {/* Quantity Selector */}
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-3">Jumlah Pesanan</h3>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                  >
+                    <FaMinus />
+                  </button>
+                  <span className="w-12 text-center font-semibold text-gray-800">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                  >
+                    <FaPlus />
+                  </button>
+                </div>
+                <span className="text-sm text-gray-500">
+                  Stok tersisa: <span className="font-semibold text-orange-600">{product.stock || 99}</span>
                 </span>
               </div>
             </div>
 
-            {/* Tombol */}
-            <div className="flex gap-3 mb-6">
+            {/* Subtotal */}
+            <div className="bg-orange-50 rounded-2xl p-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Subtotal ({quantity} item)</span>
+                <div className="text-right">
+                  {originalSubtotal && originalSubtotal > subtotal && (
+                    <span className="text-sm text-gray-400 line-through block">
+                      {formatCurrency(originalSubtotal)}
+                    </span>
+                  )}
+                  <span className="text-2xl font-bold text-orange-600">
+                    {formatCurrency(subtotal)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
               <button
                 onClick={handleBuyNow}
-                className="flex-1 py-4 font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+                className="flex-1 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-md"
               >
                 Beli Langsung
               </button>
               <button
                 onClick={handleAddToCart}
-                className="flex-1 py-4 font-bold text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
+                className="flex-1 py-4 border-2 border-orange-500 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
               >
-                <FaCartShopping /> Keranjang
+                <ShoppingCart /> Keranjang
               </button>
             </div>
+
+            {/* Wishlist */}
+            <button className="w-full py-3 text-gray-500 hover:text-red-500 transition flex items-center justify-center gap-2 border border-gray-200 rounded-xl">
+              <FiHeart /> Tambahkan ke Wishlist
+            </button>
           </div>
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes bounceIn {
+          0% { opacity: 0; transform: scale(0.3); }
+          50% { opacity: 1; transform: scale(1.05); }
+          70% { transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-bounceIn {
+          animation: bounceIn 0.5s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,485 +1,997 @@
-// src/assets/pages/HomePage.jsx
+// src/Pages/HomePage.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   Search,
   ShoppingCart,
   User,
-  Percent,
   Bell,
   FileText,
   ChevronLeft,
   ChevronRight,
+  LogOut,
+  Star,
+  Clock,
+  MapPin,
+  Phone,
+  Instagram,
+  Facebook,
+  Twitter,
+  Menu,
+  X,
+  Flame,
+  Package,
+  Truck,
+  Plus,
+  Heart,
+  Shield,
+  CreditCard,
+  Clock as ClockIcon,
+  MapPin as MapPinIcon,
+  Phone as PhoneIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-// Impor data produk dari file terpisah (PENTING: PASTIKAN FILE INI ADA DAN BERISI DATA LENGKAP)
-import allProductsData from "../data/productsData";
+import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
-// Komponen untuk satu kartu produk
-const ProductCard = ({ product }) => {
+
+const API_URL = "http://localhost/tenders_pku_api/api";
+
+// ============================================
+// COMPONENT: Product Card
+// ============================================
+const ProductCard = ({ product, onAddToCart }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <Link to={`/product/${product.id}`} className="block h-full">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden transform transition-transform duration-200 hover:scale-[1.02] border border-gray-100 flex flex-col h-full">
-        {/* Tombol switch dan ellipsis - hanya untuk estetika, tidak fungsional */}
-        <div className="flex justify-between items-center p-2 text-gray-400">
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" value="" className="sr-only peer" disabled />
-            <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-            <span className="ml-2 text-sm text-gray-500">To activated</span>
-          </label>
-          <button className="p-1 rounded-full hover:bg-gray-100">
-            <svg
-              className="w-5 h-5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"></path>
-            </svg>
+    <div
+      className="bg-white rounded-2xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl border border-orange-100 flex flex-col h-full relative group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Badge */}
+      {product.is_popular && (
+        <div className="absolute top-3 left-3 z-10 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+          <Flame size={12} /> HOT
+        </div>
+      )}
+      {product.is_new && (
+        <div className="absolute top-3 left-3 z-10 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+          NEW
+        </div>
+      )}
+
+      {/* Image */}
+      <div className="relative overflow-hidden bg-orange-50 h-48">
+        <img
+          src={product.image_url || "/images/default-product.png"}
+          alt={product.name}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            e.target.src = "/images/default-product.png";
+          }}
+        />
+        <button
+          className={`absolute bottom-3 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 text-white text-xs px-3 py-1 rounded-full transition-all duration-300 ${isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+          onClick={() => (window.location.href = `/product/${product.id}`)}
+        >
+          Quick View
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-4 flex flex-col flex-grow">
+        <div className="flex items-center gap-1 mb-1">
+          <div className="flex text-yellow-400">
+            <Star size={14} fill="currentColor" />
+            <Star size={14} fill="currentColor" />
+            <Star size={14} fill="currentColor" />
+            <Star size={14} fill="currentColor" />
+            <Star size={14} fill="currentColor" />
+          </div>
+          <span className="text-xs text-gray-500">(4.9)</span>
+        </div>
+
+        <h3 className="font-bold text-gray-800 text-lg mb-1 line-clamp-1">
+          {product.name}
+        </h3>
+
+        <p className="text-gray-500 text-xs mb-3 line-clamp-2">
+          {product.description ||
+            "Chicken tender crispy dengan bumbu Nashville hot"}
+        </p>
+
+        <div className="flex items-center justify-between mt-auto">
+          <div>
+            <span className="text-orange-600 font-bold text-xl">
+              Rp {product.price?.toLocaleString("id-ID")}
+            </span>
+            {product.original_price && (
+              <span className="text-gray-400 text-xs line-through ml-2">
+                Rp {product.original_price?.toLocaleString("id-ID")}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => onAddToCart && onAddToCart(product)}
+            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 shadow-md"
+          >
+            <Plus size={18} />
           </button>
         </div>
-
-        <div className="p-4 pt-0 flex flex-col items-center text-center flex-grow">
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-32 object-contain mb-3"
-          />
-          <h3 className="text-gray-800 font-medium text-sm mb-1 line-clamp-2">
-            {product.name}
-          </h3>
-          <p className="text-red-600 font-bold text-lg mb-2">
-            Rp {product.price}
-          </p>
-          <p className="text-gray-500 text-xs">
-            <span className="font-semibold">{product.stock}</span> In Stock
-          </p>
-          {product.rating && (
-            <div className="flex items-center text-yellow-500 text-sm mt-1">
-              <span className="mr-1">⭐</span> {product.rating}
-            </div>
-          )}
-        </div>
       </div>
-    </Link>
+    </div>
   );
 };
 
-const HomePage = () => {
-  const navigate = useNavigate();
-  // State untuk paginasi produk
-  const [currentPage, setCurrentPage] = useState(1);
-  const productsPerPage = 15; // Menampilkan 15 produk per halaman/slide
-
-  // State untuk slider banner
-  const [currentBannerSlide, setCurrentBannerSlide] = useState(0);
-  // URL gambar banner. Pastikan gambar ini ada di folder /public/images Anda.
-  const bannerImages = [
-    "/images/Coming-soon.png",
-    "/images/Big-sale-promo.png",
-    "/images/Free-delivery.png",
-    "/images/Flash-sale.png",
-    "/images/Special-promo.png",
-  ];
-
-  // Ref untuk bagian produk pilihan hari ini (untuk scroll)
-  const productsSectionRef = useRef(null);
-
-  // Fungsi untuk menampilkan kotak pesan (message box)
-  const displayMessageBox = (message) => {
-    const messageBox = document.createElement("div");
-    messageBox.className =
-      "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50";
-    messageBox.innerHTML = `
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 text-center">
-        <p class="text-lg text-gray-800 mb-4">${message}</p>
-        <button id="closeMessageBox" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">OK</button>
-      </div>
-    `;
-    document.body.appendChild(messageBox);
-    document.getElementById("closeMessageBox").onclick = () => {
-      document.body.removeChild(messageBox);
-    };
-  };
-
-  const categories = [
-    { name: "Grocery", img: "/images/grocery.png" },
-    { name: "Bayi & Anak", img: "/images/bayi & anak.png" },
-    { name: "Kecantikan & Kesehatan", img: "/images/skincare.png" },
-    { name: "Rumah Tangga", img: "/images/rt.png" },
-    { name: "Otomotif", img: "/images/otomotif.png" },
-    { name: "Alat Tulis Kantor", img: "/images/alat tulis.png" },
-    { name: "Makanan Ringan", img: "/images/snack.png" },
-    { name: "Minuman", img: "/images/drink.png" },
-  ];
-
-  // Hitung indeks produk untuk halaman saat ini berdasarkan productsPerPage
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = allProductsData.slice(
-    indexOfFirstProduct,
-    indexOfLastProduct
-  );
-
-  // Hitung total halaman untuk paginasi produk
-  const totalPages = Math.ceil(allProductsData.length / productsPerPage);
-
-  // Fungsi untuk mengubah halaman produk ke selanjutnya
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-      // Gulir ke bagian produk, bukan ke paling atas halaman
-      if (productsSectionRef.current) {
-        productsSectionRef.current.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  };
-
-  // Fungsi untuk mengubah halaman produk ke sebelumnya
-  const goToPrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-      // Gulir ke bagian produk, bukan ke paling atas halaman
-      if (productsSectionRef.current) {
-        productsSectionRef.current.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  };
-
-  // Logika slider banner: Otomatis berpindah setiap 5 detik
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBannerSlide(
-        (prevSlide) => (prevSlide + 1) % bannerImages.length
-      );
-    }, 5000); // Ganti slide setiap 5 detik
-    return () => clearInterval(interval); // Cleanup interval saat komponen di-unmount
-  }, [bannerImages.length]);
-
-  // Fungsi untuk navigasi manual slider banner ke selanjutnya
-  const goToNextBannerSlide = () => {
-    setCurrentBannerSlide((prevSlide) => (prevSlide + 1) % bannerImages.length);
-  };
-
-  // Fungsi untuk navigasi manual slider banner ke sebelumnya
-  const goToPrevBannerSlide = () => {
-    setCurrentBannerSlide(
-      (prevSlide) => (prevSlide - 1 + bannerImages.length) % bannerImages.length
-    );
-  };
-
+// ============================================
+// COMPONENT: Category Card
+// ============================================
+const MenuCategoryCard = ({ category, onClick, isActive }) => {
   return (
-    <div className="w-full flex flex-col items-center min-h-screen bg-gray-100">
-      {/* Header - Pencarian & Ikon */}
-      <div className="w-full bg-white py-3 px-4 md:px-8 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between space-x-4">
-          <div className="flex items-center space-x-2 text-red-600 font-bold text-2xl">
-            <img
-              src="/images/logo hawai.png"
-              alt="Logo Hawai"
-              className="w-11 h-11 rounded-full border-2 border-red-600"
-            />
-            <span>HAWAII</span>
-          </div>
-
-          <div className="flex-1 max-w-md relative">
-            <input
-              type="text"
-              placeholder="Cari kebutuhan sehari-hari..."
-              className="w-full pl-4 pr-10 py-2.5 rounded-full bg-gray-100 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-inner"
-            />
-            <Search
-              size={20}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer"
-              onClick={() =>
-                displayMessageBox("Fungsi Cari akan diimplementasi di sini!")
-              }
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Link
-              to="/riwayat-pesanan"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-sm hover:bg-gray-200 transition"
-            >
-              <FileText size={20} />
-            </Link>
-            <Link
-              to="/notification"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition"
-            >
-              <Bell size={20} />
-            </Link>
-
-            <Link
-              to="/promo-page"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition"
-            >
-              <Percent size={20} />
-            </Link>
-
-            <Link
-              to="/cart"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition"
-            >
-              <ShoppingCart size={20} />
-            </Link>
-
-            <Link
-              to="/signin"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition"
-            >
-              <User size={20} />
-            </Link>
-          </div>
-        </div>
-      </div>
-      {/* Banner Slider */}
-      <div className="relative w-full max-w-7xl mx-auto mt-4 rounded-lg overflow-hidden shadow-lg">
+    <div
+      onClick={onClick}
+      className={`flex flex-col items-center p-4 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer border ${
+        isActive
+          ? "bg-orange-500 text-white border-orange-500"
+          : "bg-white border-orange-100 hover:border-orange-300"
+      }`}
+    >
+      <div
+        className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${
+          isActive ? "bg-white/20" : "bg-orange-100 group-hover:bg-orange-200"
+        }`}
+      >
         <img
-          src={bannerImages[currentBannerSlide]}
-          alt={`Big Sale Promo ${currentBannerSlide + 1}`}
-          className="w-full h-auto object-cover transition-opacity duration-500 ease-in-out"
+          src={category.icon}
+          alt={category.name}
+          className="w-10 h-10 object-contain"
           onError={(e) => {
-            e.target.onerror = null;
-            // Fallback image if the original image fails to load
-            e.target.src =
-              "https://placehold.co/1280x480/cccccc/000000?text=Error+Loading+Image";
+            e.target.src = "/images/default-category.png";
           }}
         />
-        {/* Navigasi Slider - Tombol dibuat SANGAT transparan (abu-abu terang) */}
-        <button
-          onClick={goToPrevBannerSlide}
-          // Menggunakan bg-gray-200 (abu-abu terang) dengan opacity sangat rendah
-          className="absolute top-1/2 left-4 -translate-y-1/2 bg-transparent hover:bg-black hover:bg-opacity-30 text-white p-2 rounded-full z-10 transition duration-300"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <button
-          onClick={goToNextBannerSlide}
-          // Menggunakan bg-gray-200 (abu-abu terang) dengan opacity sangat rendah
-          className="absolute top-1/2 right-4 -translate-y-1/2 bg-transparent hover:bg-black hover:bg-opacity-30 text-white p-2 rounded-full z-10 transition duration-300"
-        >
-          <ChevronRight size={24} />
-        </button>
-        {/* Indikator Slider - Titik dibuat SANGAT transparan (abu-abu terang) */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-          {bannerImages.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentBannerSlide(idx)}
-              className={`w-3 h-3 rounded-full ${
-                currentBannerSlide === idx
-                  ? "bg-white shadow-sm"
-                  : "bg-gray-300 bg-opacity-50 shadow-sm"
-              } transition-colors`}
-            ></button>
-          ))}
-        </div>
-
-        {/* Info Overlay Banner (tetap ada di atas slider) */}
-        {/* Konten ini tetap berada di atas slider banner, pastikan z-index lebih tinggi dari overlay jika perlu */}
-        <div className="absolute top-4 left-4 bg-red-700 text-white text-xs px-2 py-1 rounded-full z-20">
-          ONLY 24 HOURS
-        </div>
-        <div className="absolute top-4 right-4 bg-green-700 text-white text-xs px-2 py-1 rounded-full z-20">
-          UP TO 75% OFF SALE
-        </div>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-center text-xs z-20">
-          Fully Editable And Scalable - Words and Fonts can be change
-        </div>
       </div>
-      {/* Konten Utama (kecuali header dan footer) akan flex-grow */}
-      <div className="flex-grow w-full max-w-7xl mx-auto">
-        {/* Kategori */}
-        <div className="w-full mt-8 bg-red-700 rounded-lg shadow-md overflow-hidden">
-          <h2 className="text-white text-center py-3 font-semibold text-xl">
-            KATEGORI
-          </h2>
-        </div>
+      <p
+        className={`font-semibold text-center text-sm ${isActive ? "text-white" : "text-gray-800"}`}
+      >
+        {category.name}
+      </p>
+    </div>
+  );
+};
 
-        <div className="p-4 bg-white rounded-b-lg shadow-md w-full grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {/* Kategori lainnya */}
-          {categories.map((category, i) => (
-            <div
-              key={i}
-              className="flex flex-col items-center p-3 text-center cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
-              onClick={() => navigate(`/category/${category.name}`)}
-            >
+// ============================================
+// MAIN COMPONENT: HomePage
+// ============================================
+const HomePage = () => {
+  const navigate = useNavigate();
+  const { user, logout, isAuthenticated } = useAuth();
+
+  // States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentBannerSlide, setCurrentBannerSlide] = useState(0);
+  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const productsSectionRef = useRef(null);
+  const productsPerPage = 8;
+
+  // Data static
+  const bannerImages = [
+    "/images/tenders-banner-1.jpg",
+    "/images/tenders-banner-2.jpg",
+    "/images/tenders-banner-3.jpg",
+  ];
+
+  const menuCategories = [
+    { name: "Semua", value: "all", icon: "/images/all-icon.png" },
+    {
+      name: "Chicken Tender",
+      value: "tender",
+      icon: "/images/chicken-tender-icon.png",
+    },
+    {
+      name: "Hot Mozzville",
+      value: "mozzville",
+      icon: "/images/mozzville-icon.png",
+    },
+    { name: "Sides", value: "sides", icon: "/images/sides-icon.png" },
+    { name: "Beverages", value: "beverages", icon: "/images/drinks-icon.png" },
+    { name: "Sauce", value: "sauce", icon: "/images/sauce-icon.png" },
+  ];
+
+  const comboPackages = [
+    {
+      id: 1,
+      name: "Nashville Signature",
+      items: "2 Chicken Tender + 1 Hot Mozzville + Fries + Drink",
+      price: 55000,
+      original_price: 75000,
+      image: "/images/combo-sig.png",
+      discount: "27%",
+    },
+    {
+      id: 2,
+      name: "Hot Couple",
+      items: "4 Chicken Tender + 2 Hot Mozzville + 2 Fries + 2 Drink",
+      price: 105000,
+      original_price: 140000,
+      image: "/images/combo-couple.png",
+      discount: "25%",
+    },
+    {
+      id: 3,
+      name: "Family Pack",
+      items: "8 Chicken Tender + 4 Hot Mozzville + 4 Fries + 4 Drink",
+      price: 199000,
+      original_price: 270000,
+      image: "/images/combo-family.png",
+      discount: "26%",
+    },
+  ];
+
+  const testimonials = [
+    {
+      id: 1,
+      name: "Ahmad R.",
+      rating: 5,
+      comment:
+        "Chicken tender-nya crispy banget! Level 3 bikin nagih. Recommended!",
+      date: "2 hari lalu",
+    },
+    {
+      id: 2,
+      name: "Sarah M.",
+      rating: 5,
+      comment:
+        "Hot Mozzville-nya lumer dan cheese pull-nya puas! Bakal balik lagi.",
+      date: "5 hari lalu",
+    },
+    {
+      id: 3,
+      name: "Budi W.",
+      rating: 4,
+      comment: "Enak banget, cuma antreannya lumayan. Tapi worth it!",
+      date: "1 minggu lalu",
+    },
+  ];
+
+  // ============================================
+  // FETCH FUNCTIONS
+  // ============================================
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    try {
+      let url = `${API_URL}/products.php`;
+      if (selectedCategory !== "all") {
+        url += `?category=${selectedCategory}`;
+      }
+      const response = await axios.get(url);
+      if (response.data.success) {
+        setAllProducts(response.data.data);
+        setProducts(response.data.data);
+      } else {
+        // Dummy data if API fails
+        const dummyProducts = [
+          {
+            id: 1,
+            name: "Original Chicken Tender",
+            price: 25000,
+            original_price: 30000,
+            description: "Chicken tender juicy dengan bumbu original",
+            category: "tender",
+            image_url: "/images/original-tender.png",
+            is_popular: true,
+          },
+          {
+            id: 2,
+            name: "Nashville Hot Tender",
+            price: 28000,
+            original_price: 33000,
+            description: "Pedas khas Nashville",
+            category: "tender",
+            image_url: "/images/nashville-tender.png",
+            is_popular: true,
+          },
+          {
+            id: 3,
+            name: "Hot Mozzville Original",
+            price: 32000,
+            original_price: 38000,
+            description: "Mozzarella melt",
+            category: "mozzville",
+            image_url: "/images/mozzville.png",
+            is_popular: true,
+          },
+          {
+            id: 4,
+            name: "Crispy Fries",
+            price: 15000,
+            original_price: 18000,
+            description: "Kentang goreng crispy",
+            category: "sides",
+            image_url: "/images/fries.png",
+          },
+          {
+            id: 5,
+            name: "Lemon Tea",
+            price: 8000,
+            original_price: 10000,
+            description: "Teh lemon segar",
+            category: "beverages",
+            image_url: "/images/lemon-tea.png",
+          },
+          {
+            id: 6,
+            name: "Cheese Fries",
+            price: 22000,
+            original_price: 25000,
+            description: "Kentang dengan saus keju",
+            category: "sides",
+            image_url: "/images/cheese-fries.png",
+          },
+          {
+            id: 7,
+            name: "Soft Drink",
+            price: 7000,
+            original_price: 9000,
+            description: "Coca Cola, Sprite, Fanta",
+            category: "beverages",
+            image_url: "/images/soft-drink.png",
+          },
+          {
+            id: 8,
+            name: "Hot Mozzville Nashville",
+            price: 35000,
+            original_price: 41000,
+            description: "Mozzarella pedas Nashville",
+            category: "mozzville",
+            image_url: "/images/mozzville-nash.png",
+            is_new: true,
+          },
+        ];
+        setAllProducts(dummyProducts);
+        setProducts(dummyProducts);
+      }
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCartCount = async () => {
+    if (!user) return;
+    try {
+      const response = await axios.get(`${API_URL}/cart.php?action=count`, {
+        withCredentials: true,
+      });
+      if (response.data.success) {
+        setCartCount(response.data.data?.count || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart count:", error);
+    }
+  };
+
+  // ============================================
+  // HANDLERS - UPDATE handleAddToCart
+  // ============================================
+  const handleAddToCart = async (product) => {
+    console.log("Add to cart clicked. User:", user);
+
+    if (!user) {
+      console.log("User not logged in, redirecting to login");
+      navigate("/login", { state: { from: "/", productId: product.id } });
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/cart.php`,
+        {
+          product_id: product.id,
+          quantity: 1,
+        },
+        { withCredentials: true },
+      );
+
+      console.log("Add to cart response:", response.data);
+
+      if (response.data.success) {
+        setCartCount((prev) => prev + 1);
+        alert(`${product.name} ditambahkan ke keranjang!`);
+      } else {
+        alert(response.data.error || "Gagal menambahkan ke keranjang");
+      }
+    } catch (error) {
+      console.error("Failed to add to cart:", error);
+      alert("Gagal menambahkan ke keranjang");
+    }
+  };
+
+  const handleCategoryFilter = (category) => {
+    setSelectedCategory(category);
+    setCurrentPage(1);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setCartCount(0);
+    navigate("/");
+  };
+
+  // ============================================
+  // USE EFFECTS
+  // ============================================
+  useEffect(() => {
+    fetchProducts();
+    const interval = setInterval(() => {
+      setCurrentBannerSlide((prev) => (prev + 1) % bannerImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    if (user) {
+      fetchCartCount();
+    }
+  }, [user]);
+
+  // Pagination
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = products.slice(
+    indexOfFirstProduct,
+    indexOfLastProduct,
+  );
+  const totalPages = Math.ceil(products.length / productsPerPage);
+
+  // ============================================
+  // RENDER
+  // ============================================
+  return (
+    <div className="w-full flex flex-col items-center min-h-screen bg-gray-50">
+      {/* ========== HEADER ========== */}
+      <header className="w-full bg-white shadow-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <Link to="/" className="flex items-center space-x-2">
               <img
-                src={category.img}
-                alt={category.name}
-                className="w-24 h-24 object-cover mb-2 rounded-full border border-gray-200"
+                src="/images/Logo.png"
+                alt="Tenders PKU"
+                className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover"
+                onError={(e) => {
+                  e.target.src =
+                    "https://placehold.co/48x48/orange/white?text=T";
+                }}
               />
-              <p className="text-sm font-semibold text-gray-800">
-                {category.name}
-              </p>
-            </div>
-          ))}
-        </div>
+              <div>
+                <span className="font-bold text-xl text-orange-600">
+                  TENDERS
+                </span>
+                <span className="font-bold text-xl text-gray-800"> PKU</span>
+                <p className="text-xs text-gray-500 -mt-1">
+                  First Street Nashville Hot Chicken
+                </p>
+              </div>
+            </Link>
 
-        {/* Bagian Produk Pilihan Hari Ini */}
-        <div ref={productsSectionRef} className="w-full mt-8 px-6 pb-12">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">
-            Produk Pilihan Hari Ini
-          </h2>
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-stretch">
-            {currentProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {/* Search Bar - Desktop */}
+            <div className="hidden lg:flex flex-1 max-w-md mx-4 relative">
+              <input
+                type="text"
+                placeholder="Cari menu favoritmu..."
+                className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              <Search
+                size={18}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2">
+              <Link
+                to="/cart"
+                className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600 hover:bg-orange-100 transition"
+              >
+                <ShoppingCart size={20} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              <Link
+                to="/orders"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600 hover:bg-orange-100 transition"
+              >
+                <FileText size={20} />
+              </Link>
+
+              <Link
+                to="/notifications"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600 hover:bg-orange-100 transition"
+              >
+                <Bell size={20} />
+              </Link>
+
+              {/* User Menu / Login Button */}
+              {user ? (
+                <div className="flex items-center space-x-2 ml-2">
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full font-medium hover:bg-orange-600 transition"
+                  >
+                    <User size={16} />
+                    <span className="text-sm font-semibold">
+                      {user.full_name?.split(" ")[0] || user.username}
+                    </span>
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-500 hover:bg-red-100 transition"
+                    title="Logout"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="ml-2 px-4 py-2 bg-orange-500 text-white rounded-full font-medium hover:bg-orange-600 transition flex items-center gap-2"
+                >
+                  <User size={16} />
+                  <span>Login</span>
+                </Link>
+              )}
+
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="md:hidden w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"
+              >
+                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Menu */}
+          {isMenuOpen && (
+            <div className="md:hidden mt-4 pb-4 border-t pt-4">
+              <div className="flex flex-col space-y-3">
+                <Link
+                  to="/"
+                  className="text-gray-700 hover:text-orange-600 py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link
+                  to="/menu"
+                  className="text-gray-700 hover:text-orange-600 py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Menu
+                </Link>
+                <Link
+                  to="/promo"
+                  className="text-gray-700 hover:text-orange-600 py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Promo
+                </Link>
+                <Link
+                  to="/location"
+                  className="text-gray-700 hover:text-orange-600 py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Location
+                </Link>
+                <Link
+                  to="/contact"
+                  className="text-gray-700 hover:text-orange-600 py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Contact
+                </Link>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Cari menu..."
+                    className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100"
+                  />
+                  <Search
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* ========== BANNER SLIDER ========== */}
+      <section className="w-full max-w-7xl mx-auto mt-6 px-4">
+        <div className="relative rounded-2xl overflow-hidden shadow-lg">
+          <img
+            src={bannerImages[currentBannerSlide]}
+            alt="Tenders PKU Banner"
+            className="w-full h-64 md:h-80 object-cover transition-opacity duration-500"
+            onError={(e) => {
+              e.target.src =
+                "https://placehold.co/1280x400/orange/white?text=TENDERS+PKU";
+            }}
+          />
+          <button
+            onClick={() =>
+              setCurrentBannerSlide(
+                (prev) =>
+                  (prev - 1 + bannerImages.length) % bannerImages.length,
+              )
+            }
+            className="absolute top-1/2 left-4 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full transition"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <button
+            onClick={() =>
+              setCurrentBannerSlide((prev) => (prev + 1) % bannerImages.length)
+            }
+            className="absolute top-1/2 right-4 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full transition"
+          >
+            <ChevronRight size={24} />
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+            {bannerImages.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentBannerSlide(idx)}
+                className={`w-2 h-2 rounded-full transition-all ${currentBannerSlide === idx ? "bg-white w-6" : "bg-gray-400"}`}
+              />
             ))}
           </div>
         </div>
-      </div>{" "}
-      {/* Penutup div flex-grow */}
-      {/* Komponen Paginasi Produk */}
-      <div className="w-full max-w-7xl mx-auto py-4 flex justify-center items-center space-x-4 mb-8">
-        <button
-          onClick={goToPrevPage}
-          disabled={currentPage === 1}
-          className={`w-12 h-12 flex items-center justify-center rounded-full shadow-md transition-colors
-            ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white text-red-600 hover:bg-red-50"
-            }`}
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M15 19l-7-7 7-7"
-            ></path>
-          </svg>
-        </button>
-        <span className="text-lg font-semibold text-gray-700">
-          Halaman {currentPage} dari {totalPages}
-        </span>
-        <button
-          onClick={goToNextPage}
-          disabled={currentPage === totalPages}
-          className={`w-12 h-12 flex items-center justify-center rounded-full shadow-md transition-colors
-            ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white text-red-600 hover:bg-red-50"
-            }`}
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 5l7 7-7 7"
-            ></path>
-          </svg>
-        </button>
-      </div>
-      {/* Footer */}
-      <footer className="w-full bg-red-800 text-white py-8 mt-8">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="font-bold text-white mb-4">QUICK LINKS</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a
-                  href="/faq"
-                  className="hover:text-white transition-colors"
-                  onClick={() => displayMessageBox("Halaman FAQ segera hadir!")}
-                >
-                  FAQ
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/form-pengaduan"
-                  className="hover:text-white transition-colors"
-                  onClick={() =>
-                    displayMessageBox("Silakan hubungi customer service kami.")
-                  }
-                >
-                  Pengaduan Pelanggan
-                </a>
-              </li>
-            </ul>
-          </div>
+      </section>
 
-          <div>
-            <h3 className="font-bold text-white mb-4">Contact Us</h3>
-            <ul className="space-y-2 text-sm">
-              <li>📞 081378237282</li>
-              <li>📧 hawaii@gmail.com</li>
-              <li>☎️ 1334314</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-white mb-4">Follow Us</h3>
-            <div className="flex space-x-4 text-2xl text-white">
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-blue-400 transition-colors"
-              >
-                <i className="fab fa-twitter"></i>
-              </a>
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-blue-600 transition-colors"
-              >
-                <i className="fab fa-facebook"></i>
-              </a>
-              <a
-                href="https://www.instagram.com/hawaiiswalayanpku?igsh=amN0c2VkeGh2eXhm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-pink-500 transition-colors"
-              >
-                <i className="fab fa-instagram"></i>
-              </a>
-              <a
-                href="https://www.tiktok.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors"
-              >
-                <i className="fab fa-tiktok"></i>
-              </a>
+      {/* ========== INFO STORE ========== */}
+      <section className="w-full max-w-7xl mx-auto mt-8 px-4">
+        <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex items-center gap-4">
+              <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                <ClockIcon size={28} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Jam Operasional</h3>
+                <p className="text-sm opacity-90">15.00 - Sold Out</p>
+                <p className="text-xs opacity-75">Setiap Hari</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                <MapPinIcon size={28} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Lokasi</h3>
+                <p className="text-sm opacity-90">
+                  Jl. Hangtuah (Depan Plaza Kado)
+                </p>
+                <p className="text-xs opacity-75">Pekanbaru, Riau</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                <Truck size={28} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Delivery</h3>
+                <p className="text-sm opacity-90">GoFood & ShopeeFood</p>
+                <p className="text-xs opacity-75">Pesan Online Sekarang!</p>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
+      {/* ========== MENU CATEGORIES ========== */}
+      <section className="w-full max-w-7xl mx-auto mt-12 px-4">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-800">Menu Categories</h2>
+          <p className="text-gray-500 mt-2">Pilih kategori menu favoritmu</p>
+        </div>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+          {menuCategories.map((category, idx) => (
+            <MenuCategoryCard
+              key={idx}
+              category={category}
+              isActive={selectedCategory === category.value}
+              onClick={() => handleCategoryFilter(category.value)}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ========== COMBO PACKAGES ========== */}
+      <section className="w-full max-w-7xl mx-auto mt-12 px-4">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className="font-bold text-white mb-4">Location</h3>
-            <p className="text-sm">
-              Jl Yos Sudarso
-              <br />
-              Jl Juanda Tarumai
-              <br />
-              Jl Hitam Ujung
-              <br />
-              Jl Hangtuah Ujung Simpang Jengkol
-              <br />
-              Jl Durian No.1E Payung Sekaki
-            </p>
+            <h2 className="text-3xl font-bold text-gray-800">Paket Hemat</h2>
+            <p className="text-gray-500">Lebih hemat dengan paket combo</p>
+          </div>
+          <Link
+            to="/promo"
+            className="text-orange-600 font-medium hover:text-orange-700 flex items-center gap-1"
+          >
+            Lihat Semua <ChevronRight size={16} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {comboPackages.map((combo) => (
+            <div
+              key={combo.id}
+              className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition border border-orange-100"
+            >
+              <div className="relative">
+                <img
+                  src={combo.image}
+                  alt={combo.name}
+                  className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://placehold.co/400x300/orange/white?text=Combo";
+                  }}
+                />
+                <div className="absolute top-3 right-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
+                  Save {combo.discount}
+                </div>
+              </div>
+              <div className="p-4">
+                <h3 className="font-bold text-xl text-gray-800">
+                  {combo.name}
+                </h3>
+                <p className="text-gray-500 text-sm mt-1">{combo.items}</p>
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="text-orange-600 font-bold text-xl">
+                    Rp {combo.price.toLocaleString("id-ID")}
+                  </span>
+                  <span className="text-gray-400 text-sm line-through">
+                    Rp {combo.original_price.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <button className="w-full mt-4 bg-orange-500 text-white py-2 rounded-xl font-semibold hover:bg-orange-600 transition">
+                  Pesan Sekarang
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ========== PRODUCTS SECTION ========== */}
+      <section
+        ref={productsSectionRef}
+        className="w-full max-w-7xl mx-auto mt-12 px-4 pb-12"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800">Menu Populer</h2>
+            <p className="text-gray-500">Favorite customer hari ini</p>
           </div>
         </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Belum ada produk tersedia</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {currentProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={handleAddToCart}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center space-x-3 mt-10">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-orange-600 border border-orange-200 disabled:opacity-50 hover:bg-orange-50"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="text-gray-600">
+                  Halaman {currentPage} dari {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-orange-600 border border-orange-200 disabled:opacity-50 hover:bg-orange-50"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
-        <div className="text-center text-white-500 text-xs mt-8 border-t border-gray-700 pt-4">
-          © 2024 HAWAII. All rights reserved.
+      {/* ========== TESTIMONIALS ========== */}
+      <section className="w-full bg-orange-50 py-12">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-800">
+              Apa Kata Mereka?
+            </h2>
+            <p className="text-gray-500 mt-2">
+              Testimoni dari pelanggan setia Tenders PKU
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((t) => (
+              <div
+                key={t.id}
+                className="bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+                    <User size={24} className="text-orange-500" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-800">{t.name}</h4>
+                    <div className="flex text-yellow-400">
+                      {[...Array(t.rating)].map((_, i) => (
+                        <Star key={i} size={14} fill="currentColor" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-600 italic">"{t.comment}"</p>
+                <p className="text-xs text-gray-400 mt-3">{t.date}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ========== CTA SECTION ========== */}
+      <section className="w-full max-w-7xl mx-auto my-12 px-4">
+        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-8 text-center text-white">
+          <h2 className="text-3xl font-bold mb-3">Pesan Sekarang!</h2>
+          <p className="mb-6 opacity-90">
+            Nikmati kelezatan First Street Nashville Hot Chicken
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+              <Package size={20} /> GoFood
+            </button>
+            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+              <Package size={20} /> ShopeeFood
+            </button>
+            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+              <PhoneIcon size={20} /> Call Order
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ========== FOOTER ========== */}
+      <footer className="w-full bg-gray-900 text-white py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <img
+                  src="/images/Logo.png"
+                  alt="Tenders PKU"
+                  className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://placehold.co/40x40/orange/white?text=T";
+                  }}
+                />
+                <div>
+                  <span className="font-bold text-lg text-orange-400">
+                    TENDERS
+                  </span>
+                  <span className="font-bold text-lg"> PKU</span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-400">
+                First Street Nashville Hot Chicken pertama di Pekanbaru. Chicken
+                tender crispy dengan bumbu khas Nashville.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-bold mb-4 text-orange-400">Quick Links</h3>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li>
+                  <Link to="/about" className="hover:text-orange-400">
+                    About Us
+                  </Link>
+                </li>
+                
+                <li>
+                  <Link to="/faq" className="hover:text-orange-400">
+                    FAQ
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-bold mb-4 text-orange-400">Contact</h3>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li className="flex items-center gap-2">
+                  <MapPinIcon size={14} /> Jl. Hangtuah (Depan Plaza Kado)
+                </li>
+                <li className="flex items-center gap-2">
+                  <PhoneIcon size={14} /> +62 813 7823 7282
+                </li>
+                <li className="flex items-center gap-2">
+                  <ClockIcon size={14} /> 15.00 - Sold Out
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-bold mb-4 text-orange-400">Follow Us</h3>
+              <div className="flex space-x-4">
+                <a
+                  href="https://instagram.com/tenders.pku"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
+                >
+                  <Instagram size={18} />
+                </a>
+                <a
+                  href="#"
+                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
+                >
+                  <Facebook size={18} />
+                </a>
+                <a
+                  href="#"
+                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
+                >
+                  <Twitter size={18} />
+                </a>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-gray-400">Delivery Partner:</p>
+                <div className="flex gap-3 mt-2">
+                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">
+                    GoFood
+                  </span>
+                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">
+                    ShopeeFood
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="text-center text-gray-500 text-xs border-t border-gray-800 mt-8 pt-6">
+            © 2024 TENDERS PKU - First Street Nashville Hot Chicken. All rights
+            reserved.
+          </div>
         </div>
       </footer>
     </div>

@@ -1,26 +1,17 @@
-// src/components/ProtectedRoute.jsx (File Baru)
+// src/components/ProtectedRoute.jsx
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-
-const ProtectedRoute = ({ requiredRole }) => {
-  const { currentUser } = useAuth();
-
-  // 1. Cek apakah ada yang login
-  if (!currentUser) {
-    // Jika tidak ada, tendang ke halaman login
-    return <Navigate to="/login" replace />;
-  }
-
-  // 2. Cek apakah peran user sesuai dengan yang dibutuhkan halaman
-  if (currentUser.role !== requiredRole) {
-    // Jika tidak sesuai, tendang ke halaman "Tidak Diizinkan" (atau kembali ke login)
-    return <Navigate to="/unauthorized" replace />; 
-  }
-
-  // 3. Jika semua aman, izinkan masuk (tampilkan halaman)
-  return <Outlet />;
+export const AdminRoute = ({ children }) => {
+  const { isAdmin, isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated || !isAdmin) return <Navigate to="/login" replace />;
+  return children;
 };
 
-export default ProtectedRoute;
+export const CustomerRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+};
