@@ -1,204 +1,248 @@
-// src/pages/SignupPage.jsx
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+// src/Pages/RegisterPage.jsx
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const API_URL = "http://localhost/tenders_pku_api/api";
-
-const SignupPage = () => {
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    full_name: "",
-    phone: "",
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const displayMessageBox = (message, isError = true) => {
-    const messageBox = document.createElement("div");
-    messageBox.className =
-      "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50";
-    messageBox.innerHTML = `
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 text-center">
-        <p class="text-lg ${isError ? "text-red-600" : "text-green-600"} mb-4">${message}</p>
-        <button id="closeMessageBox" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">OK</button>
-      </div>
-    `;
-    document.body.appendChild(messageBox);
-    document.getElementById("closeMessageBox").onclick = () => {
-      document.body.removeChild(messageBox);
-    };
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+const RegisterPage = () => {
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        password: '',
+        full_name: '',
     });
-  };
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+        // Clear error when user starts typing
+        if (error) setError('');
+    };
 
-    if (formData.password !== formData.confirmPassword) {
-      displayMessageBox("Password dan Konfirmasi Password tidak cocok!");
-      return;
-    }
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        
+        // Validasi
+        if (!formData.username || !formData.email || !formData.password || !formData.full_name) {
+            setError('Semua field harus diisi');
+            return;
+        }
 
-    if (formData.password.length < 4) {
-      displayMessageBox("Password minimal 4 karakter!");
-      return;
-    }
+        if (formData.password.length < 4) {
+            setError('Password minimal 4 karakter');
+            return;
+        }
 
-    setIsLoading(true);
+        if (!formData.email.includes('@')) {
+            setError('Email tidak valid');
+            return;
+        }
 
-    try {
-      const response = await axios.post(
-        `${API_URL}/auth.php`,
-        {
-          action: "register",
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          full_name: formData.full_name,
-          phone: formData.phone,
-        },
-        { withCredentials: true },
-      );
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
 
-      if (response.data.success) {
-        displayMessageBox("Pendaftaran berhasil! Silakan login.", false);
-        setTimeout(() => navigate("/login"), 2000);
-      } else {
-        displayMessageBox(response.data.error || "Pendaftaran gagal");
-      }
-    } catch (error) {
-      console.error("Register error:", error);
-      if (error.response && error.response.data) {
-        displayMessageBox(error.response.data.error || "Registrasi gagal");
-      } else {
-        displayMessageBox("Koneksi ke server gagal");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        try {
+            const response = await axios.post('http://127.0.0.1:8000/api/register', {
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+                full_name: formData.full_name,
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
 
-  return (
-    <div className="w-full flex flex-col items-center justify-center min-h-screen py-6 px-4 sm:px-6 lg:px-8 bg-gray-100">
-      <div className="bg-orange-100 text-orange-800 text-center py-3 px-6 rounded-lg shadow-md mb-4 max-w-md w-full">
-        Daftar Akun Baru
-      </div>
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
-        <div className="text-center mb-4">
-          <img
-            src="images\Logo.png"
-            alt="Tenders PKU Logo"
-            className="mx-auto mb-2 rounded-full w-20 h-20 object-cover"
-            onError={(e) => {
-              e.target.src = "https://placehold.co/80x80/orange/white?text=T";
-            }}
-          />
-          <h2 className="text-xl font-bold text-orange-700">TENDERS PKU</h2>
-          <p className="text-sm text-gray-500">Buat akun untuk memesan</p>
+            console.log('Register response:', response.data);
+
+            if (response.data.success === true) {
+                setSuccess('Pendaftaran berhasil! Silakan login.');
+                // Reset form
+                setFormData({
+                    username: '',
+                    email: '',
+                    password: '',
+                    full_name: '',
+                });
+                // Redirect to login after 2 seconds
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
+            } else {
+                setError(response.data.error || 'Pendaftaran gagal');
+            }
+        } catch (error) {
+            console.error('Register error:', error);
+            if (error.response) {
+                // Server responded with error
+                setError(error.response.data?.error || 'Username atau email sudah terdaftar');
+            } else if (error.request) {
+                setError('Tidak dapat terhubung ke server. Pastikan backend berjalan di http://127.0.0.1:8000');
+            } else {
+                setError('Terjadi kesalahan: ' + error.message);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-500 to-red-600 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl font-bold text-orange-600">T</span>
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-800">Daftar Akun</h1>
+                    <p className="text-gray-500 text-sm">Bergabung dengan TENDERS PKU</p>
+                </div>
+
+                {/* Error Alert */}
+                {error && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-xl text-sm">
+                        {error}
+                    </div>
+                )}
+
+                {/* Success Alert */}
+                {success && (
+                    <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded-xl text-sm">
+                        {success}
+                    </div>
+                )}
+
+                {/* Register Form */}
+                <form onSubmit={handleRegister} className="space-y-4">
+                    {/* Nama Lengkap */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Nama Lengkap <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="full_name"
+                            value={formData.full_name}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            placeholder="Masukkan nama lengkap"
+                            disabled={isLoading}
+                        />
+                    </div>
+
+                    {/* Username */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Username <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            placeholder="Pilih username"
+                            disabled={isLoading}
+                        />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            placeholder="Email aktif"
+                            disabled={isLoading}
+                        />
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Password <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent pr-12"
+                                placeholder="Minimal 4 karakter"
+                                disabled={isLoading}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-orange-500"
+                            >
+                                {showPassword ? (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Minimal 4 karakter</p>
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                    >
+                        {isLoading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Memproses...
+                            </span>
+                        ) : (
+                            'Daftar'
+                        )}
+                    </button>
+                </form>
+
+                {/* Login Link */}
+                <div className="mt-6 text-center">
+                    <p className="text-gray-500 text-sm">
+                        Sudah punya akun?{' '}
+                        <Link to="/login" className="text-orange-500 font-semibold hover:underline">
+                            Masuk Sekarang
+                        </Link>
+                    </p>
+                </div>
+
+                {/* Info */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-xl text-center">
+                    <p className="text-xs text-gray-500">
+                        Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi TENDERS PKU.
+                    </p>
+                </div>
+            </div>
         </div>
-
-        <form onSubmit={handleRegister}>
-          <div className="mb-3">
-            <input
-              type="text"
-              name="full_name"
-              placeholder="Nama Lengkap"
-              value={formData.full_name}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <input
-              type="text"
-              name="username"
-              placeholder="Username"
-              value={formData.username}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Nomor Telepon (opsional)"
-              value={formData.phone}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-          </div>
-
-          <div className="mb-3">
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Konfirmasi Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 transition-colors disabled:opacity-50"
-          >
-            {isLoading ? "Memproses..." : "Daftar"}
-          </button>
-        </form>
-
-        <div className="mt-4 text-center text-sm text-gray-700">
-          Sudah punya akun?{" "}
-          <Link
-            to="/signin"
-            className="text-orange-600 font-semibold hover:underline"
-          >
-            Login
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
-export default SignupPage;
+export default RegisterPage;

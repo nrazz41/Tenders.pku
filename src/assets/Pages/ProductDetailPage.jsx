@@ -15,13 +15,12 @@ import {
 } from "react-icons/fa";
 import { ShoppingCart } from "lucide-react";
 import { FiHeart } from "react-icons/fi";
-
-const API_URL = "http://localhost/tenders_pku_api/api";
+import { getProduct, addToCart, getCartCount } from "../../services/api";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,14 +35,16 @@ const ProductDetailPage = () => {
   // Fetch product from database
   useEffect(() => {
     fetchProduct();
-    fetchCartCount();
-  }, [id]);
+    if (user) {
+      fetchCartCount();
+    }
+  }, [id, user]);
 
   const fetchProduct = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_URL}/products.php?id=${id}`);
+      const response = await getProduct(id);
       console.log("Product data:", response.data);
       
       if (response.data.success && response.data.data) {
@@ -77,11 +78,8 @@ const ProductDetailPage = () => {
   };
 
   const fetchCartCount = async () => {
-    if (!user) return;
     try {
-      const response = await axios.get(`${API_URL}/cart.php?action=count`, {
-        withCredentials: true
-      });
+      const response = await getCartCount();
       if (response.data.success) {
         setCartCount(response.data.data?.count || 0);
       }
@@ -127,21 +125,20 @@ const ProductDetailPage = () => {
     }
     
     try {
-      const response = await axios.post(`${API_URL}/cart.php`, {
+      const response = await addToCart({
         product_id: product.id,
         quantity: quantity,
-      }, { withCredentials: true });
+      });
       
       if (response.data.success) {
         setCartCount(prev => prev + quantity);
         showAlert(`${quantity} x ${product.name} ditambahkan ke keranjang!`, "success");
-        fetchCartCount();
       } else {
         showAlert(response.data.error || "Gagal menambahkan ke keranjang", "error");
       }
     } catch (error) {
       console.error("Failed to add to cart:", error);
-      showAlert("Gagal menambahkan ke keranjang", "error");
+      showAlert(error.response?.data?.error || "Gagal menambahkan ke keranjang", "error");
     }
   };
 
@@ -194,14 +191,22 @@ const ProductDetailPage = () => {
       {/* Popup Notification */}
       {showPopup && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform animate-bounceIn border-t-8 border-green-500">
+          <div className={`bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform animate-bounceIn border-t-8 ${popupType === 'success' ? 'border-green-500' : 'border-red-500'}`}>
             <div className="text-center">
-              <div className="mx-auto w-16 h-16 mb-4 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
+              <div className={`mx-auto w-16 h-16 mb-4 rounded-full flex items-center justify-center ${popupType === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
+                {popupType === 'success' ? (
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                )}
               </div>
-              <h3 className="text-lg font-semibold text-green-800 mb-2">Berhasil!</h3>
+              <h3 className={`text-lg font-semibold mb-2 ${popupType === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                {popupType === 'success' ? 'Berhasil!' : 'Oops!'}
+              </h3>
               <p className="text-gray-600">{popupMessage}</p>
             </div>
           </div>
@@ -305,6 +310,13 @@ const ProductDetailPage = () => {
               </div>
             )}
 
+            {/* Stock Info */}
+            <div className="flex items-center gap-2">
+              <span className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {product.stock > 0 ? `✓ Stok tersedia (${product.stock})` : '✗ Stok habis'}
+              </span>
+            </div>
+
             {/* Delivery Info */}
             <div className="bg-gray-100 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-3 text-sm">
@@ -328,20 +340,22 @@ const ProductDetailPage = () => {
                 <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                    disabled={product.stock === 0}
+                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition disabled:opacity-50"
                   >
                     <FaMinus />
                   </button>
                   <span className="w-12 text-center font-semibold text-gray-800">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                    disabled={quantity >= product.stock || product.stock === 0}
+                    className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition disabled:opacity-50"
                   >
                     <FaPlus />
                   </button>
                 </div>
                 <span className="text-sm text-gray-500">
-                  Stok tersisa: <span className="font-semibold text-orange-600">{product.stock || 99}</span>
+                  Stok tersisa: <span className="font-semibold text-orange-600">{product.stock || 0}</span>
                 </span>
               </div>
             </div>
@@ -367,15 +381,17 @@ const ProductDetailPage = () => {
             <div className="flex gap-4">
               <button
                 onClick={handleBuyNow}
-                className="flex-1 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-md"
+                disabled={product.stock === 0}
+                className="flex-1 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Beli Langsung
               </button>
               <button
                 onClick={handleAddToCart}
-                className="flex-1 py-4 border-2 border-orange-500 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
+                disabled={product.stock === 0}
+                className="flex-1 py-4 border-2 border-orange-500 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ShoppingCart /> Keranjang
+                <ShoppingCart size={18} /> Keranjang
               </button>
             </div>
 

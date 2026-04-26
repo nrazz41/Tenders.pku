@@ -4,7 +4,8 @@ import { PlusCircle, Search, Edit, Trash2, Box, PackageX, CheckCircle, Flame, Sp
 import axios from 'axios';
 import ProductForm from './ProductForm';
 
-const API_URL = "http://localhost/tenders_pku_api/api";
+// PERBAIKI URL API INI
+const API_URL = "http://127.0.0.1:8000/api";  // ← GANTI DENGAN INI
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -13,6 +14,7 @@ const ProductManagement = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch products dari database
   useEffect(() => {
@@ -21,16 +23,22 @@ const ProductManagement = () => {
 
   const fetchProducts = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(`${API_URL}/products.php`);
+      console.log('Fetching products from:', `${API_URL}/products`);
+      const response = await axios.get(`${API_URL}/products`);
+      console.log('Products response:', response.data);
+      
       if (response.data.success) {
         setProducts(response.data.data || []);
       } else {
         console.error("Failed to fetch products:", response.data.error);
+        setError(response.data.error);
         setProducts([]);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
+      setError(error.message);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -66,8 +74,11 @@ const ProductManagement = () => {
   const handleDeleteProduct = async (id) => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus produk ini?`)) {
       try {
-        const response = await axios.delete(`${API_URL}/products.php?id=${id}`, {
-          withCredentials: true
+        const token = localStorage.getItem('token');
+        const response = await axios.delete(`${API_URL}/products/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         if (response.data.success) {
           alert('Produk berhasil dihapus!');
@@ -77,26 +88,34 @@ const ProductManagement = () => {
         }
       } catch (error) {
         console.error("Error deleting product:", error);
-        alert('Gagal menghapus produk');
+        alert(error.response?.data?.error || 'Gagal menghapus produk');
       }
     }
   };
 
   const handleSubmitProduct = async (productData) => {
     try {
+      const token = localStorage.getItem('token');
       let response;
+      
       if (productData.id) {
         // Update product
-        response = await axios.put(`${API_URL}/products.php`, productData, {
-          withCredentials: true
+        response = await axios.put(`${API_URL}/products/${productData.id}`, productData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
         if (response.data.success) {
           alert('Produk berhasil diperbarui!');
         }
       } else {
         // Create new product
-        response = await axios.post(`${API_URL}/products.php`, productData, {
-          withCredentials: true
+        response = await axios.post(`${API_URL}/products`, productData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
         if (response.data.success) {
           alert('Produk berhasil ditambahkan!');
@@ -111,7 +130,7 @@ const ProductManagement = () => {
       }
     } catch (error) {
       console.error("Error saving product:", error);
-      alert('Gagal menyimpan produk');
+      alert(error.response?.data?.error || 'Gagal menyimpan produk');
     }
   };
 
@@ -156,6 +175,23 @@ const ProductManagement = () => {
   };
 
   const primaryOrange = '#F97316';
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>Error: {error}</p>
+          <p className="text-sm mt-2">Pastikan backend Laravel berjalan di http://127.0.0.1:8000</p>
+          <button 
+            onClick={fetchProducts}
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
@@ -295,7 +331,7 @@ const ProductManagement = () => {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(product.status, product.stock)}`}>
                           {getStatusText(product.status, product.stock)}
                         </span>
-                      </td>
+                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <button
                           onClick={() => handleEditProduct(product)}
@@ -311,7 +347,7 @@ const ProductManagement = () => {
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
-                      </td>
+                       </td>
                     </tr>
                   ))
                 ) : (

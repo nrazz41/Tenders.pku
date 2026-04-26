@@ -28,8 +28,10 @@ const menuItems = [
   { name: "Laporan", icon: <BarChart2 />, path: "/laporan-penjualan" },
   { name: "Keluhan & Layanan", icon: <FileText />, path: "/masukan" },
   { name: "Promo", icon: <Tag />, path: "/promo" },
-  { name: "Artikel", icon: <Newspaper />, path: "/artikel" },
+  { name: "Paket Hemat", icon: <Newspaper />, path: "/combos" },
+   
   {
+    
     name: "Prediksi Loyalitas",
     icon: <ClipboardList />,
     path: "/loyalty-predict",

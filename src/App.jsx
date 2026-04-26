@@ -46,51 +46,48 @@ import LoyaltyPredict from "./assets/Pages/LoyaltyPredict";
 function App() {
   return (
     <CartProvider>
-      <AuthProvider>
       <OrderProvider>
-      <Routes>
-        {/* Halaman-halaman umum (tanpa layout utama) */}
-        <Route element={<AuthLayout />}>
-          <Route path="/" element={<HalamanUtama />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<RegisterPage />} />
-          <Route path="/faq" element={<FAQPage />} />
-          <Route path="/form-pengaduan" element={<FormPengaduan />} />
-          <Route path="/notification" element={<NotificationPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/promo-page" element={<PromoPage />} />
-          <Route path="/category/:categoryName" element={<CategoryPage />} />
-          <Route path="/order/:id" element={<OrderDetailPage />} />
-          
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/riwayat-pesanan" element={<OrderListPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-        </Route>
+        <AuthProvider>
+          <Routes>
+            {/* Halaman-halaman umum (tanpa layout utama) */}
+            <Route element={<AuthLayout />}>
+              <Route path="/" element={<HalamanUtama />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/faq" element={<FAQPage />} />
+              <Route path="/form-pengaduan" element={<FormPengaduan />} />
+              <Route path="/notification" element={<NotificationPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/promo-page" element={<PromoPage />} />
+              <Route path="/category/:categoryName" element={<CategoryPage />} />
+              <Route path="/order/:id" element={<OrderDetailPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/riwayat-pesanan" element={<OrderListPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
 
-        {/* Halaman internal (butuh MainLayout) */}
-        <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/Pelanggan" element={<CustomerManagement />} />
-          <Route path="/sales" element={<SalesManagement />} />
-          <Route path="/loyalty-predict" element={<LoyaltyPredict />} />
-          <Route path="/product" element={<ProductManagement />} />
-          <Route path="/complaint-form" element={<ComplaintForm />} />
-          <Route path="/loyalty" element={<MembershipLevel />} />
-          <Route path="/promo" element={<PromoPelanggan />} />
-          <Route path="/masukan" element={<CustomerFeedbackManager />} />
-          <Route path="/riwayat" element={<SalesHistoryPage />} />
-          <Route path="/data" element={<DataPelanggan />} />
-          <Route path="/Penjualan" element={<ManajemenPenjualanPage />} />
-          <Route path="/artikel" element={<ArticleDashboard />} />
-          {/* Rute baru untuk halaman Laporan Penjualan */}
-          <Route path="/laporan-penjualan" element={<SalesReportsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-        </Route>
-      </Routes>
-    </OrderProvider>
-    </AuthProvider> 
+            {/* Halaman internal (butuh MainLayout) */}
+            <Route element={<MainLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/Pelanggan" element={<CustomerManagement />} />
+              <Route path="/sales" element={<SalesManagement />} />
+              <Route path="/loyalty-predict" element={<LoyaltyPredict />} />
+              <Route path="/product" element={<ProductManagement />} />
+              <Route path="/complaint-form" element={<ComplaintForm />} />
+              <Route path="/loyalty" element={<MembershipLevel />} />
+              <Route path="/promo" element={<PromoPelanggan />} />
+              <Route path="/masukan" element={<CustomerFeedbackManager />} />
+              <Route path="/riwayat" element={<SalesHistoryPage />} />
+              <Route path="/data" element={<DataPelanggan />} />
+              <Route path="/Penjualan" element={<ManajemenPenjualanPage />} />
+              <Route path="/artikel" element={<ArticleDashboard />} />
+              <Route path="/laporan-penjualan" element={<SalesReportsPage />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </OrderProvider>
     </CartProvider>
   );
 }
