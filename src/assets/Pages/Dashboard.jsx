@@ -1,345 +1,198 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
+  LineElement, PointElement, Title, Tooltip, Legend, ArcElement,
 } from 'chart.js';
-import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2';
-import { Package, Users, Tag, DollarSign, AlertTriangle, UserPlus, TrendingUp } from 'lucide-react'; // Import ikon yang relevan
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { 
+  Package, Users, Tag, DollarSign, AlertTriangle, 
+  UserPlus, RefreshCcw, LayoutDashboard, TrendingUp, ChevronRight
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
+  CategoryScale, LinearScale, BarElement, LineElement,
+  PointElement, Title, Tooltip, Legend, ArcElement
 );
 
-// --- Warna Tema (Dipindahkan ke luar komponen agar dapat diakses secara global) ---
+const API_URL = "http://127.0.0.1:8000/api";
 const primaryRed = '#B82329';
-const lightRed = '#FFEEEE';
 const darkerRed = '#8e1b20';
-const accentBlue = '#4A90E2';
-const accentGreen = '#50E3C2';
-const accentYellow = '#F8E71C';
-const goldColor = '#DAA520';
-const silverColor = '#C0C0C0';
-const bronzeColor = '#CD7F32';
-
-// --- Fungsi untuk format Rupiah (Juga dipindahkan ke luar komponen) ---
-const formatRupiah = (amount) => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 const Dashboard = () => {
   const navigate = useNavigate();
-
-  // --- Data Dummy Produk (dari ProductManagement) ---
-  const products = [
-    { id: 1, name: 'Susu UHT Full Cream 1L', category: 'Dairy & Frozen', stock: 150, price: 17500, status: 'Active', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 2, name: 'Beras Premium 5kg', category: 'Staple Food', stock: 80, price: 62000, status: 'Active', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 3, name: 'Minyak Goreng 2L', category: 'Cooking Needs', stock: 15, price: 35000, status: 'Low Stock', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 4, name: 'Mie Instan Goreng', category: 'Snacks & Instant', stock: 200, price: 3000, status: 'Active', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 5, name: 'Sabun Mandi Cair', category: 'Personal Care', stock: 0, price: 25000, status: 'Out of Stock', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 6, name: 'Kopi Bubuk Murni 250gr', category: 'Beverages', stock: 75, price: 15000, status: 'Active', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-    { id: 7, name: 'Gula Pasir 1kg', category: 'Staple Food', stock: 120, price: 13500, status: 'Active', imageUrl: 'https://asbajayaberkah.com/wp-content/uploads/2024/01/ULTRA-MILK-SUSU-UHT-FULL-CREAM-1L.jpg' },
-  ];
-
-  const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 20).length;
-  const outOfStockProducts = products.filter(p => p.stock === 0).length;
-  const criticalStockProductsCount = lowStockProducts + outOfStockProducts;
-
-  // --- Data Dummy Penjualan (disesuaikan agar bisa dihitung) ---
-  const salesData = [
-    { date: '2025-06-27', amount: 1200000 }, // Hari ini
-    { date: '2025-06-27', amount: 800000 }, // Hari ini
-    { date: '2025-06-26', amount: 500000 },
-    { date: '2025-06-15', amount: 3000000 },
-    { date: '2025-05-20', amount: 4500000 },
-    { date: '2025-06-05', amount: 2500000 },
-    { date: '2025-04-10', amount: 1500000 },
-    { date: '2025-06-20', amount: 1800000 },
-    { date: '2025-06-22', amount: 900000 },
-    { date: '2025-06-01', amount: 2000000 },
-    { date: '2025-06-03', amount: 1000000 },
-    { date: '2025-06-25', amount: 700000 },
-  ];
-
-  const today = new Date();
-  const todayString = today.toISOString().split('T')[0];
-  const thisMonth = today.getMonth();
-  const thisYear = today.getFullYear();
-
-  const pendapatanHariIni = salesData
-    .filter(s => s.date === todayString)
-    .reduce((sum, s) => sum + s.amount, 0);
-
-  const totalPenjualanBulanIni = salesData
-    .filter(s => {
-      const saleDate = new Date(s.date);
-      return saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear;
-    })
-    .reduce((sum, s) => sum + s.amount, 0);
-
-  // --- Data Dummy Members (disesuaikan untuk membership levels) ---
-  const membersData = [
-    { id: 'M001', name: 'Budi Santoso', joinDate: '2024-06-10', membershipLevel: 'Platinum' },
-    { id: 'M002', name: 'Siti Aminah', joinDate: '2025-06-20', membershipLevel: 'Gold' }, // Join bulan ini
-    { id: 'M003', name: 'Joko Susanto', joinDate: '2025-05-15', membershipLevel: 'Silver' },
-    { id: 'M004', name: 'Mariawati Dewi', joinDate: '2025-06-27', membershipLevel: 'Bronze' }, // Join hari ini
-    { id: 'M005', name: 'Ahmad Faisal', joinDate: '2024-12-01', membershipLevel: 'Platinum' },
-    { id: 'M006', name: 'Putri Lestari', joinDate: '2025-06-05', membershipLevel: 'Gold' }, // Join bulan ini
-    { id: 'M007', name: 'Kevin Tanaka', joinDate: '2025-06-27', membershipLevel: 'Silver' }, // Join hari ini
-    { id: 'M008', name: 'Linda Wijaya', joinDate: '2025-06-18', membershipLevel: 'Bronze' }, // Join bulan ini
-  ];
-
-  const totalMembers = membersData.length;
-  const newMembersThisMonth = membersData.filter(m => {
-    const memberJoinDate = new Date(m.joinDate);
-    return memberJoinDate.getMonth() === thisMonth && memberJoinDate.getFullYear() === thisYear;
-  }).length;
-
-  // --- Data Kartu Statistik Utama ---
-  const stats = [
-    { label: "Pendapatan Hari Ini", value: formatRupiah(pendapatanHariIni), icon: <DollarSign className="w-8 h-8" />, path: '/penjualan', color: primaryRed, bgColor: lightRed },
-    { label: "Total Penjualan Bulan Ini", value: formatRupiah(totalPenjualanBulanIni), icon: <Tag className="w-8 h-8" />, path: '/penjualan', color: darkerRed, bgColor: lightRed },
-    { label: "Produk Stok Kritis", value: criticalStockProductsCount.toLocaleString('id-ID'), icon: <AlertTriangle className="w-8 h-8" />, path: '/product', color: accentYellow, bgColor: '#FFFBEB' },
-    { label: "Anggota Baru Bulan Ini", value: newMembersThisMonth.toLocaleString('id-ID'), icon: <UserPlus className="w-8 h-8" />, path: '/pelanggan', color: accentBlue, bgColor: '#EFF6FF' },
-  ];
-
-  // --- Data untuk Grafik Penjualan Bulanan (Bar Chart) ---
-  // Menggunakan data dummy penjualan yang lebih relevan untuk grafik bulanan
-  const monthlySales = Array(12).fill(0);
-  salesData.forEach(sale => {
-    const date = new Date(sale.date);
-    if (date.getFullYear() === thisYear) { // Hanya tahun ini
-      monthlySales[date.getMonth()] += sale.amount;
-    }
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState([]);
+  const [chartData, setChartData] = useState({
+    monthlySales: Array(12).fill(0),
+    membershipDist: {}
   });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const [orderRes, userRes, productRes] = await Promise.all([
+        axios.get(`${API_URL}/orders`, config),
+        axios.get(`${API_URL}/users`, config),
+        axios.get(`${API_URL}/products`, config)
+      ]);
+
+      if (orderRes.data.success && userRes.data.success && productRes.data.success) {
+        const orders = orderRes.data.data;
+        const users = userRes.data.data;
+        const products = productRes.data.data;
+
+        const today = new Date().toISOString().split('T')[0];
+        const thisMonth = new Date().getMonth();
+        
+        const incomeToday = orders
+          .filter(o => o.created_at.split('T')[0] === today && o.status === 'completed')
+          .reduce((sum, o) => sum + Number(o.total_amount), 0);
+
+        const incomeMonth = orders
+          .filter(o => new Date(o.created_at).getMonth() === thisMonth && o.status === 'completed')
+          .reduce((sum, o) => sum + Number(o.total_amount), 0);
+
+        const lowStockCount = products.filter(p => p.stock <= 20 && p.stock > 0).length;
+        const totalCustomers = users.length;
+
+        setStats([
+          { label: "Pendapatan Hari Ini", value: `Rp ${incomeToday.toLocaleString('id-ID')}`, icon: <DollarSign />, path: '/penjualan', color: primaryRed },
+          { label: "Revenue Bulan Ini", value: `Rp ${incomeMonth.toLocaleString('id-ID')}`, icon: <TrendingUp />, path: '/laporan-penjualan', color: darkerRed },
+          { label: "Stok Kritis", value: `${lowStockCount} Produk`, icon: <AlertTriangle />, path: '/product', color: '#DAA520' },
+          { label: "Total Pelanggan", value: `${totalCustomers} Member`, icon: <Users />, path: '/pelanggan', color: '#4A90E2' },
+        ]);
+
+        const salesByMonth = Array(12).fill(0);
+        orders.forEach(o => {
+          if (o.status === 'completed') salesByMonth[new Date(o.created_at).getMonth()] += Number(o.total_amount);
+        });
+
+        const memberMap = {};
+        users.forEach(u => { memberMap[u.membership || 'Classic'] = (memberMap[u.membership || 'Classic'] || 0) + 1; });
+
+        setChartData({ monthlySales: salesByMonth, membershipDist: memberMap });
+      }
+    } catch (error) {
+      console.error("Sinkronisasi gagal:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const barData = {
     labels: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
-    datasets: [
-      {
-        label: "Penjualan",
-        data: monthlySales.map(amount => amount / 1000000), // Tampilkan dalam Juta Rp
-        backgroundColor: primaryRed,
-        borderColor: darkerRed,
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
+    datasets: [{
+      label: "Revenue",
+      data: chartData.monthlySales.map(v => v / 1000),
+      backgroundColor: primaryRed,
+      borderRadius: 5,
+    }]
   };
-
-  const barOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top', labels: { color: '#333' } },
-      title: { display: true, text: 'Penjualan Bulanan Tahun Ini', color: darkerRed, font: { size: 18 } },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) { label += ': '; }
-            if (context.parsed.y !== null) { label += formatRupiah(context.parsed.y * 1000000); }
-            return label;
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        title: { display: true, text: 'Penjualan (Juta Rp)', color: '#555' },
-        ticks: {
-          color: '#666',
-          callback: function(value) {
-            return value + ' Jt';
-          }
-        },
-        grid: { color: '#e0e0e0' }
-      },
-      x: {
-        title: { display: true, text: 'Bulan', color: '#555' },
-        ticks: { color: '#666' },
-        grid: { color: '#e0e0e0' }
-      }
-    }
-  };
-
-  // --- Data untuk Grafik Pertumbuhan Anggota (Line Chart) ---
-  const monthlyMembers = Array(12).fill(0);
-  membersData.forEach(member => {
-    const joinDate = new Date(member.joinDate);
-    if (joinDate.getFullYear() === thisYear) { // Hanya tahun ini
-        for (let i = joinDate.getMonth(); i < 12; i++) {
-            monthlyMembers[i]++; // Anggota terhitung di bulan bergabung dan bulan-bulan berikutnya
-        }
-    }
-  });
-
-  const lineData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
-    datasets: [
-      {
-        label: "Jumlah Anggota",
-        data: monthlyMembers,
-        borderColor: accentBlue,
-        backgroundColor: '#EBF8FF',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointBackgroundColor: accentBlue,
-        pointBorderColor: 'white',
-        pointBorderWidth: 2,
-        pointHoverRadius: 7,
-      },
-    ],
-  };
-
-  const lineOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top', labels: { color: '#333' } },
-      title: { display: true, text: 'Pertumbuhan Anggota Tahun Ini', color: darkerRed, font: { size: 18 } },
-    },
-    scales: {
-      y: { beginAtZero: true, title: { display: true, text: 'Jumlah Anggota', color: '#555' }, ticks: { color: '#666' }, grid: { color: '#e0e0e0' } },
-      x: { title: { display: true, text: 'Bulan', color: '#555' }, ticks: { color: '#666' }, grid: { color: '#e0e0e0' } }
-    }
-  };
-
-  // --- Data untuk Grafik Distribusi Produk Berdasarkan Kategori (Pie Chart) ---
-  const productsByCategory = products.reduce((acc, product) => {
-    acc[product.category] = (acc[product.category] || 0) + 1;
-    return acc;
-  }, {});
-
-  const productCategoryLabels = Object.keys(productsByCategory);
-  const productCategoryDataValues = Object.values(productsByCategory);
-  const pieChartColors = [primaryRed, darkerRed, '#CD5C5C', '#FF6384', '#36A2EB', '#FFCE56', '#8e1b20', '#C0C0C0'];
-
-  const pieData = {
-    labels: productCategoryLabels,
-    datasets: [
-      {
-        data: productCategoryDataValues,
-        backgroundColor: productCategoryLabels.map((_, index) => pieChartColors[index % pieChartColors.length]),
-        borderColor: 'white',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  const pieOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'right', labels: { color: '#333' } },
-      title: { display: true, text: 'Distribusi Produk per Kategori', color: darkerRed, font: { size: 18 } },
-    },
-  };
-
-  // --- Data untuk Grafik Distribusi Level Membership (Doughnut Chart) ---
-  const membersByMembershipLevel = membersData.reduce((acc, member) => {
-    acc[member.membershipLevel] = (acc[member.membershipLevel] || 0) + 1;
-    return acc;
-  }, {});
-
-  const membershipLevelLabels = Object.keys(membersByMembershipLevel);
-  const membershipLevelDataValues = Object.values(membersByMembershipLevel);
-  const doughnutChartColors = [primaryRed, goldColor, silverColor, bronzeColor, '#A52A2A', '#E9967A']; // Warna sesuai level membership
 
   const doughnutData = {
-    labels: membershipLevelLabels,
-    datasets: [
-      {
-        data: membershipLevelDataValues,
-        backgroundColor: membershipLevelLabels.map((_, index) => doughnutChartColors[index % doughnutChartColors.length]),
-        borderColor: 'white',
-        borderWidth: 2,
-      },
-    ],
+    labels: Object.keys(chartData.membershipDist),
+    datasets: [{
+      data: Object.values(chartData.membershipDist),
+      backgroundColor: [primaryRed, '#DAA520', '#94a3b8', '#CD7F32'],
+      hoverOffset: 15,
+      borderWidth: 0,
+    }]
   };
 
-  const doughnutOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'right', labels: { color: '#333' } },
-      title: { display: true, text: 'Distribusi Level Membership Anggota', color: darkerRed, font: { size: 18 } },
-    },
-  };
+  if (loading) return (
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F7FE]">
+      <RefreshCcw className="animate-spin text-[#B82329] mb-4" size={48} />
+      <p className="font-black uppercase italic tracking-[0.2em] text-gray-400">Tenders Engine Loading...</p>
+    </div>
+  );
 
   return (
-    <div className="p-6 space-y-8 min-h-screen bg-gray-50">
-      <h1 className="text-4xl font-extrabold mb-8 text-center md:text-left" style={{ color: primaryRed, textShadow: '1px 1px 3px rgba(0,0,0,0.1)' }}>Ringkasan Dashboard</h1>
-      
-      {/* Kartu Statistik Utama */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map(({ label, value, icon, path, color, bgColor }) => (
-          <div
-            key={label}
-            className="rounded-xl shadow-lg p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl border-b-4 cursor-pointer"
-            style={{ backgroundColor: 'white', borderColor: color }}
-            onClick={() => path && navigate(path)}
+    <div className="p-6 bg-[#F4F7FE] min-h-screen font-sans text-gray-800">
+      {/* Header Eksklusif */}
+      <div className="flex justify-between items-end mb-10">
+        <div>
+          <h1 className="text-4xl font-black text-[#B82329] uppercase italic tracking-tighter flex items-center gap-3">
+            <LayoutDashboard size={36} className="text-[#B82329]" /> Dashboard Pusat
+          </h1>
+          <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-1 ml-1">Live Statistics Monitoring System</p>
+        </div>
+        <button onClick={fetchData} className="bg-white p-3 rounded-2xl shadow-sm hover:rotate-180 transition-all duration-500 text-gray-400 hover:text-[#B82329]">
+          <RefreshCcw size={22} />
+        </button>
+      </div>
+
+      {/* Grid Statistik - Gaya Halaman Pelanggan */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        {stats.map((item, idx) => (
+          <div 
+            key={idx} 
+            onClick={() => navigate(item.path)}
+            className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 group cursor-pointer hover:shadow-2xl transition-all relative overflow-hidden"
           >
-            <div className="p-3 rounded-full mb-3" style={{ backgroundColor: bgColor, color: color }}>
-              {icon}
+            <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                {item.icon}
             </div>
-            <p className="text-sm font-semibold text-gray-600 mb-1">{label}</p>
-            <h2 className="text-3xl font-bold text-gray-900 mt-1" style={{ color: color }}>
-              {value}
-            </h2>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
+            <h3 className="text-2xl font-black text-gray-900 mb-4">{item.value}</h3>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-[#B82329] uppercase tracking-tighter">
+                Lihat Detail <ChevronRight size={12} />
+            </div>
+            <div className="absolute bottom-0 left-0 h-1.5 w-0 group-hover:w-full transition-all duration-500" style={{ backgroundColor: item.color }}></div>
           </div>
         ))}
       </div>
 
-      {/* Bagian Grafik Utama */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Grafik Penjualan Bulanan */}
-        <div className="rounded-xl shadow-lg p-6 bg-white border-b-4" style={{ borderColor: primaryRed }}>
-          <h3 className="text-2xl font-semibold text-gray-800 mb-4" style={{ color: darkerRed }}>Penjualan Bulanan</h3>
-          <Bar options={barOptions} data={barData} />
-        </div>
-
-        {/* Grafik Pertumbuhan Anggota */}
-        <div className="rounded-xl shadow-lg p-6 bg-white border-b-4" style={{ borderColor: accentBlue }}>
-          <h3 className="text-2xl font-semibold text-gray-800 mb-4" style={{ color: darkerRed }}>Pertumbuhan Anggota</h3>
-          <Line options={lineOptions} data={lineData} />
-        </div>
-      </div>
-
-      {/* Visualisasi Tambahan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Grafik Distribusi Produk per Kategori (Pie Chart) */}
-        <div className="rounded-xl shadow-lg p-6 flex flex-col items-center bg-white border-b-4" style={{ borderColor: darkerRed }}>
-          <h3 className="text-2xl font-semibold text-gray-800 mb-4 text-center" style={{ color: darkerRed }}>Distribusi Produk per Kategori</h3>
-          <div className="w-full max-w-md h-auto">
-            <Pie options={pieOptions} data={pieData} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Chart Penjualan - 2/3 Lebar */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-xl border border-gray-100 relative overflow-hidden">
+          <div className="flex justify-between items-center mb-8 border-b border-gray-50 pb-4">
+            <h2 className="text-xl font-black uppercase italic tracking-tighter">Analisis Penjualan Bulanan</h2>
+            <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Target: 100%</span>
+          </div>
+          <div className="h-72">
+             <Bar 
+               data={barData} 
+               options={{ 
+                 responsive: true, 
+                 maintainAspectRatio: false,
+                 plugins: { legend: { display: false } },
+                 scales: { y: { beginAtZero: true, grid: { display: false }, ticks: { font: { weight: 'bold' } } }, x: { grid: { display: false }, ticks: { font: { weight: 'bold' } } } }
+               }} 
+             />
           </div>
         </div>
 
-        {/* Grafik Distribusi Level Membership (Doughnut Chart) */}
-        <div className="rounded-xl shadow-lg p-6 flex flex-col items-center bg-white border-b-4" style={{ borderColor: goldColor }}>
-          <h3 className="text-2xl font-semibold text-gray-800 mb-4 text-center" style={{ color: darkerRed }}>Distribusi Level Membership Anggota</h3>
-          <div className="w-full max-w-md h-auto">
-            <Doughnut options={doughnutOptions} data={doughnutData} />
+        {/* Doughnut Chart - 1/3 Lebar */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 flex flex-col items-center">
+          <h2 className="text-xl font-black uppercase italic tracking-tighter mb-8 border-b border-gray-50 pb-4 w-full text-center">Membership</h2>
+          <div className="w-56 h-56 relative">
+            <Doughnut 
+                data={doughnutData} 
+                options={{ 
+                    cutout: '75%', 
+                    plugins: { legend: { display: false } },
+                    maintainAspectRatio: false 
+                }} 
+            />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-[#B82329] italic">{Object.values(chartData.membershipDist).reduce((a,b) => a+b, 0)}</span>
+                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total Member</span>
+            </div>
+          </div>
+          <div className="mt-8 w-full space-y-2">
+             {Object.entries(chartData.membershipDist).map(([key, val], i) => (
+               <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors">
+                  <span className="text-[10px] font-black uppercase text-gray-400">{key}</span>
+                  <span className="text-sm font-black text-gray-800">{val}</span>
+               </div>
+             ))}
           </div>
         </div>
       </div>
