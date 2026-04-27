@@ -19,7 +19,7 @@ import OrderDetailPage from "./assets/Pages/OrderDetailPage";
 import CheckoutPage from "./assets/Pages/CheckoutPage";
 import ChatPage from "./assets/Pages/ChatPage";
 import ProductDetailPage from "./assets/Pages/ProductDetailPage";
-import OrderListPage from './assets/Pages/OrderListPage';
+import OrderListPage from "./assets/Pages/OrderListPage";
 
 // Pages - Fitur Internal
 import Dashboard from "./assets/Pages/Dashboard";
@@ -36,12 +36,15 @@ import ArticleDashboard from "./assets/Pages/ArticleDashboard";
 import ProfilePage from "./assets/Pages/ProfilePage";
 
 // Context
-import { CartProvider } from './assets/contexts/CartContext';
-import { OrderProvider } from './assets/contexts/OrderContext';
-import { AuthProvider } from './assets/contexts/AuthContext';
+import { CartProvider } from "./assets/contexts/CartContext";
+import { OrderProvider } from "./assets/contexts/OrderContext";
+import { AuthProvider } from "./assets/contexts/AuthContext";
 import SalesReportsPage from "./assets/Pages/SalesReportsPage";
 import MembershipLevel from "./assets/Pages/MembershipLevel";
 import LoyaltyPredict from "./assets/Pages/LoyaltyPredict";
+import PromoDashboard from "./assets/Pages/PromoPelanggan";
+import ComboManagement from "./assets/Pages/ComboManagement";
+import ComplaintsAdmin from "./assets/Pages/ComplaintsAdmin";
 
 function App() {
   return (
@@ -58,14 +61,18 @@ function App() {
               <Route path="/form-pengaduan" element={<FormPengaduan />} />
               <Route path="/notification" element={<NotificationPage />} />
               <Route path="/cart" element={<CartPage />} />
-              <Route path="/promo-page" element={<PromoPage />} />
-              <Route path="/category/:categoryName" element={<CategoryPage />} />
+              <Route path="/promo" element={<PromoPage />} />
+              <Route
+                path="/category/:categoryName"
+                element={<CategoryPage />}
+              />
               <Route path="/order/:id" element={<OrderDetailPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/riwayat-pesanan" element={<OrderListPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              
             </Route>
 
             {/* Halaman internal (butuh MainLayout) */}
@@ -77,13 +84,16 @@ function App() {
               <Route path="/product" element={<ProductManagement />} />
               <Route path="/complaint-form" element={<ComplaintForm />} />
               <Route path="/loyalty" element={<MembershipLevel />} />
-              <Route path="/promo" element={<PromoPelanggan />} />
+              <Route path="/promo-page" element={<PromoDashboard />} />
+              <Route path="/promo-page1" element={<PromoPelanggan />} />
               <Route path="/masukan" element={<CustomerFeedbackManager />} />
               <Route path="/riwayat" element={<SalesHistoryPage />} />
               <Route path="/data" element={<DataPelanggan />} />
               <Route path="/Penjualan" element={<ManajemenPenjualanPage />} />
               <Route path="/artikel" element={<ArticleDashboard />} />
               <Route path="/laporan-penjualan" element={<SalesReportsPage />} />
+              <Route path="/complaints" element={<ComplaintsAdmin />} />
+              <Route path="/paket-hemat" element={<ComboManagement />} />
             </Route>
           </Routes>
         </AuthProvider>

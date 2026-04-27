@@ -4,8 +4,7 @@ import { PlusCircle, Search, Edit, Trash2, Box, PackageX, CheckCircle, Flame, Sp
 import axios from 'axios';
 import ProductForm from './ProductForm';
 
-// PERBAIKI URL API INI
-const API_URL = "http://127.0.0.1:8000/api";  // ← GANTI DENGAN INI
+const API_URL = "http://127.0.0.1:8000/api";
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -16,7 +15,9 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch products dari database
+  // Warna merah primary
+  const primaryRed = '#B82329';
+
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -45,20 +46,17 @@ const ProductManagement = () => {
     }
   };
 
-  // Hitung statistik
   const totalProducts = products.length;
   const activeProducts = products.filter(p => p.status === 'active').length;
   const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 20).length;
   const outOfStockProducts = products.filter(p => p.stock === 0).length;
 
-  // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || product.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // Unique categories
   const categories = ['All', ...new Set(products.map(p => p.category).filter(Boolean))];
 
   const handleAddProduct = () => {
@@ -99,7 +97,6 @@ const ProductManagement = () => {
       let response;
       
       if (productData.id) {
-        // Update product
         response = await axios.put(`${API_URL}/products/${productData.id}`, productData, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -110,7 +107,6 @@ const ProductManagement = () => {
           alert('Produk berhasil diperbarui!');
         }
       } else {
-        // Create new product
         response = await axios.post(`${API_URL}/products`, productData, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -150,7 +146,7 @@ const ProductManagement = () => {
 
   const getCategoryBadgeClass = (category) => {
     const classes = {
-      tender: 'bg-orange-100 text-orange-700',
+      tender: 'bg-red-100 text-red-700',
       mozzville: 'bg-red-100 text-red-700',
       sides: 'bg-yellow-100 text-yellow-700',
       beverages: 'bg-blue-100 text-blue-700',
@@ -174,8 +170,6 @@ const ProductManagement = () => {
     return `Rp ${price?.toLocaleString('id-ID') || 0}`;
   };
 
-  const primaryOrange = '#F97316';
-
   if (error) {
     return (
       <div className="p-6 bg-gray-50 min-h-screen">
@@ -195,27 +189,30 @@ const ProductManagement = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4 mb-8 bg-white rounded-xl shadow-lg border-b-4" style={{ borderColor: primaryOrange }}>
-        <h2 className="text-3xl font-extrabold tracking-wide" style={{ color: primaryOrange }}>Manajemen Produk</h2>
+      {/* Header - warna merah */}
+      <div className="flex justify-between items-center px-6 py-4 mb-8 bg-white rounded-xl shadow-lg border-b-4" style={{ borderColor: primaryRed }}>
+        <h2 className="text-3xl font-extrabold tracking-wide" style={{ color: primaryRed }}>Manajemen Produk</h2>
         <button
           onClick={handleAddProduct}
-          className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all shadow-md"
+          className="flex items-center gap-2 px-5 py-2.5 text-white rounded-lg transition-all shadow-md"
+          style={{ backgroundColor: primaryRed }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#8B1A1F'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = primaryRed}
         >
           <PlusCircle className="w-5 h-5" />
           <span>Tambah Produk</span>
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - border warna merah */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-orange-500 hover:shadow-lg transition">
+        <div className="bg-white p-6 rounded-xl shadow-md border-l-4 hover:shadow-lg transition" style={{ borderLeftColor: primaryRed }}>
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-500 text-sm">Total Produk</p>
               <p className="text-3xl font-bold text-gray-800">{totalProducts}</p>
             </div>
-            <Box className="w-10 h-10 text-orange-500" />
+            <Box className="w-10 h-10" style={{ color: primaryRed }} />
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500 hover:shadow-lg transition">
@@ -254,7 +251,9 @@ const ProductManagement = () => {
             <input
               type="text"
               placeholder="Cari produk..."
-              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-orange-400"
+              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2"
+              style={{ focusRingColor: primaryRed }}
+              onFocus={(e) => e.target.style.setProperty('--tw-ring-color', primaryRed)}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -262,7 +261,9 @@ const ProductManagement = () => {
           </div>
 
           <select
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-48 bg-white text-gray-700"
+            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 w-full md:w-48 bg-white text-gray-700"
+            style={{ focusRingColor: primaryRed }}
+            onFocus={(e) => e.target.style.setProperty('--tw-ring-color', primaryRed)}
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
@@ -275,30 +276,30 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Products Table - Header warna merah */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderBottomColor: primaryRed }}></div>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-orange-500 text-white">
+              <thead style={{ backgroundColor: primaryRed }}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Gambar</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Nama Produk</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Kategori</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Stok</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Harga</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase">Aksi</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Gambar</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Nama Produk</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Kategori</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Stok</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Harga</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-white">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-white">Aksi</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-orange-50 transition">
+                    <tr key={product.id} className="hover:bg-red-50 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <img 
                           src={product.image_url || '/images/default-product.png'} 
@@ -310,7 +311,7 @@ const ProductManagement = () => {
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-800">{product.name}</div>
                         {product.is_popular && (
-                          <span className="inline-flex items-center gap-1 text-xs text-orange-500 mt-1">
+                          <span className="inline-flex items-center gap-1 text-xs mt-1" style={{ color: primaryRed }}>
                             <Flame size={12} /> Best Seller
                           </span>
                         )}
@@ -326,12 +327,12 @@ const ProductManagement = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-gray-600">{product.stock}</td>
-                      <td className="px-6 py-4 font-semibold text-orange-600">{formatRupiah(product.price)}</td>
+                      <td className="px-6 py-4 font-semibold" style={{ color: primaryRed }}>{formatRupiah(product.price)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(product.status, product.stock)}`}>
                           {getStatusText(product.status, product.stock)}
                         </span>
-                       </td>
+                      </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <button
                           onClick={() => handleEditProduct(product)}
@@ -347,7 +348,7 @@ const ProductManagement = () => {
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
-                       </td>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -371,6 +372,7 @@ const ProductManagement = () => {
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleSubmitProduct}
         initialData={editingProduct}
+        primaryColor={primaryRed}
       />
     </div>
   );

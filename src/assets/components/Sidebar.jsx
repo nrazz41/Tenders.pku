@@ -13,11 +13,13 @@ import {
   Newspaper, // Ikon untuk Artikel
   Gift, // Ikon untuk Hadiah (digunakan untuk Loyalty)
   ClipboardList, // Ikon untuk Daftar
-  History, // Ikon untuk Riwayat
+  History,
+  MessageSquare,
+  SquareActivityIcon, // Ikon untuk Riwayat
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-const HAWAII_LOGO_URL = "./images/logo hawai.png";
+const HAWAII_LOGO_URL = "/images/Logo.png";
 
 const menuItems = [
   { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },
@@ -26,10 +28,9 @@ const menuItems = [
   { name: "Penjualan", icon: <ShoppingCart />, path: "/penjualan" },
   { name: "Loyalty", icon: <Gift />, path: "/loyalty" }, // Ganti ikon di sini
   { name: "Laporan", icon: <BarChart2 />, path: "/laporan-penjualan" },
-  { name: "Keluhan & Layanan", icon: <FileText />, path: "/masukan" },
-  { name: "Promo", icon: <Tag />, path: "/promo" },
-  { name: "Paket Hemat", icon: <Newspaper />, path: "/combos" },
-   
+  { name: "Paket Hemat", icon: <SquareActivityIcon />, path: "/paket-hemat" },
+  { name: "Complaints", icon: <MessageSquare />, path: "/complaints" },
+  
   {
     
     name: "Prediksi Loyalitas",

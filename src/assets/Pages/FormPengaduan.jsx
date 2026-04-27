@@ -1,131 +1,250 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, Send, User, Mail, MessageSquare, Star, Phone, MapPin } from "lucide-react";
+import axios from "axios";
 
-export default function FormPengaduanPage() {
-  const [namaLengkap, setNamaLengkap] = useState('');
-  const [noHp, setNoHp] = useState('');
-  const [email, setEmail] = useState('');
-  const [tanggalKejadian, setTanggalKejadian] = useState('');
-  const [waktuKejadian, setWaktuKejadian] = useState('');
-  const [lokasiHawaii, setLokasiHawaii] = useState('');
-  const [deskripsiPengaduan, setDeskripsiPengaduan] = useState('');
+const API_URL = "http://127.0.0.1:8000/api";
 
-  const handleSubmit = (e) => {
+const FormPengaduan = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+  const [formData, setFormData] = useState({
+    name: user?.full_name || user?.username || "",
+    email: "",
+    phone: "",
+    complaint_type: "keluhan",
+    message: "",
+    rating: 0,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+
+  const complaintTypes = [
+    { value: "keluhan", label: "📢 Keluhan" },
+    { value: "saran", label: "💡 Saran" },
+    { value: "kritik", label: "👎 Kritik" },
+    { value: "pujian", label: "👍 Pujian" },
+    { value: "laporkan_gagal_pesan", label: "⚠️ Gagal Pesan" },
+    { value: "laporkan_pelayanan", label: "🛎️ Pelayanan" },
+    { value: "laporkan_kualitas_makanan", label: "🍗 Kualitas Makanan" },
+  ];
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleRating = (rating) => {
+    setFormData({ ...formData, rating });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Form berhasil dikirim!');
-    console.log({
-      namaLengkap,
-      noHp,
-      email,
-      tanggalKejadian,
-      waktuKejadian,
-      lokasiHawaii,
-      deskripsiPengaduan,
-    });
-    // Reset form
-    setNamaLengkap('');
-    setNoHp('');
-    setEmail('');
-    setTanggalKejadian('');
-    setWaktuKejadian('');
-    setLokasiHawaii('');
-    setDeskripsiPengaduan('');
+    setIsSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `${API_URL}/complaints`,
+        {
+          ...formData,
+          user_id: user?.id || null,
+        },
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+
+      if (response.data.success) {
+        setSuccess("✅ Terima kasih! Pengaduan/saran Anda telah kami terima.");
+        setFormData({
+          name: user?.full_name || user?.username || "",
+          email: "",
+          phone: "",
+          complaint_type: "keluhan",
+          message: "",
+          rating: 0,
+        });
+        setTimeout(() => navigate("/"), 3000);
+      } else {
+        setError("Gagal mengirim pengaduan. Silakan coba lagi.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi kesalahan. Silakan coba lagi nanti.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-800 px-4">
-      <div className="bg-white w-full max-w-4xl px-10 py-10 rounded-xl shadow-lg">
-        <h1 className="text-4xl font-bold text-red-700 mb-12 text-center">
-          Form Pengaduan Pelanggan
-        </h1>
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-3xl mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+            📝 Form <span className="text-orange-600">Pengaduan & Saran</span>
+          </h1>
+          <p className="text-gray-500 mt-2">
+            Kami menghargai setiap masukan dari pelanggan Tenders PKU
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <label className="block text-lg font-semibold mb-2">Nama Lengkap</label>
-              <input
-                type="text"
-                required
-                value={namaLengkap}
-                onChange={(e) => setNamaLengkap(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-                placeholder="Nama Lengkap"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-2">Tanggal Kejadian</label>
-              <input
-                type="date"
-                required
-                value={tanggalKejadian}
-                onChange={(e) => setTanggalKejadian(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-2">Nomor HP</label>
-              <input
-                type="tel"
-                required
-                value={noHp}
-                onChange={(e) => setNoHp(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-                placeholder="081234567890"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-2">Waktu Kejadian</label>
-              <input
-                type="time"
-                value={waktuKejadian}
-                onChange={(e) => setWaktuKejadian(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-2">Email (Opsional)</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-                placeholder="Email Anda"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-2">Lokasi Hawaii</label>
-              <input
-                type="text"
-                required
-                value={lokasiHawaii}
-                onChange={(e) => setLokasiHawaii(e.target.value)}
-                className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-                placeholder="Contoh: Cabang Rumbai"
-              />
-            </div>
+        {/* Card Form */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-500 to-red-600 p-4">
+            <h2 className="text-white font-bold text-xl flex items-center gap-2">
+              <AlertCircle size={24} /> Isi Form Dibawah Ini
+            </h2>
           </div>
 
-          <div className="mt-10">
-            <label className="block text-lg font-semibold mb-2">Deskripsi Pengaduan</label>
-            <textarea
-              required
-              value={deskripsiPengaduan}
-              onChange={(e) => setDeskripsiPengaduan(e.target.value)}
-              className="w-full border border-gray-300 bg-red-50 p-4 rounded-lg"
-              placeholder="Jelaskan pengaduan Anda secara detail..."
-              rows={6}
-            ></textarea>
-          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* Nama */}
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2 flex items-center gap-2">
+                <User size={18} /> Nama Lengkap <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Masukkan nama Anda"
+              />
+            </div>
 
-          <div className="mt-10 flex justify-end">
+            {/* Email & Phone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2 flex items-center gap-2">
+                  <Mail size={18} /> Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2 flex items-center gap-2">
+                  <Phone size={18} /> No. Telepon
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="0812-3456-7890"
+                />
+              </div>
+            </div>
+
+            {/* Tipe Pengaduan */}
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Jenis Pengaduan / Saran</label>
+              <select
+                name="complaint_type"
+                value={formData.complaint_type}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                {complaintTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Rating */}
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Rating Pengalaman Anda</label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => handleRating(star)}
+                    className={`text-3xl transition-transform hover:scale-110 ${
+                      formData.rating >= star ? "text-yellow-400" : "text-gray-300"
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pesan */}
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2 flex items-center gap-2">
+                <MessageSquare size={18} /> Pesan <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                required
+                rows="5"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                placeholder="Ceritakan pengalaman, keluhan, atau saran Anda..."
+              />
+            </div>
+
+            {/* Info */}
+            <div className="bg-orange-50 p-4 rounded-xl text-sm text-gray-600">
+              <p className="flex items-start gap-2">
+                <MapPin size={16} className="mt-0.5" />
+                <span>Pengaduan Anda akan langsung kami respon dalam 1x24 jam. Terima kasih atas kepercayaan Anda kepada Tenders PKU!</span>
+              </p>
+            </div>
+
+            {/* Error & Success */}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl">
+                {success}
+              </div>
+            )}
+
+            {/* Submit Button */}
             <button
               type="submit"
-              className="bg-red-600 hover:bg-red-700 text-white font-semibold text-lg px-10 py-4 rounded-lg transition duration-300"
+              disabled={isSubmitting}
+              className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
             >
-              Kirim Pengaduan
+              {isSubmitting ? (
+                "Mengirim..."
+              ) : (
+                <>
+                  <Send size={18} /> Kirim Pengaduan
+                </>
+              )}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        {/* Back to Home */}
+        <div className="text-center mt-6">
+          <Link to="/" className="text-orange-500 hover:underline">
+            ← Kembali ke Beranda
+          </Link>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default FormPengaduan;

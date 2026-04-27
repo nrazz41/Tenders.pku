@@ -1,406 +1,455 @@
-// KODE LENGKAP - Salin semua isi file ini
+// src/assets/Pages/CheckoutPage.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCart } from "../contexts/CartContext";
-import { useOrders } from "../contexts/OrderContext";
 import {
   MapPin,
   ShoppingCart,
   User,
-  Percent,
   Bell,
-  Edit3,
+  Percent,
   ChevronRight,
   CreditCard,
   CheckCircle,
-  Tag,
-  MessageSquare,
   Truck,
   Wallet,
   Landmark,
   Building,
   X,
+  Store,
+  LogOut,
+  Search,
+  Menu,
+  Flame,
 } from "lucide-react";
+import axios from "axios";
 
-// --- DATA DUMMY UNTUK DEMO ---
-const userAddresses = [
-  {
-    id: 1,
-    name: "Rumah",
-    recipient: "Sakura",
-    phone: "0895410950887",
-    street: "Gg. Intisari",
-    details: "Umbansari - Rumbai, Pekanbaru 28265",
-    isPrimary: true,
-  },
-  {
-    id: 2,
-    name: "Kantor",
-    recipient: "Obito (Work)",
-    phone: "081234567890",
-    street: "Jl. Jend. Sudirman No. 123",
-    details: "Pusat Kota, Pekanbaru 28111",
-    isPrimary: true,
-  },
-  {
-    id: 3,
-    name: "Rumah Ortu",
-    recipient: "Madara",
-    phone: "082345678901",
-    street: "Jl. Durian No. 45",
-    details: "Sukajadi, Pekanbaru 28121",
-    isPrimary: true,
-  },
-];
-const paymentOptions = {
-  ewallet: [
-    { id: "gopay", name: "GoPay" },
-    { id: "ovo", name: "OVO" },
-    { id: "dana", name: "DANA" },
-    { id: "shopeepay", name: "ShopeePay" },
-    { id: "linkaja", name: "LinkAja" },
-    { id: "qris", name: "QRIS (Scan dari semua aplikasi)" },
-  ],
-  bank: [
-    { id: "bca", name: "BCA Virtual Account" },
-    { id: "mandiri", name: "Mandiri Virtual Account" },
-    { id: "bri", name: "BRI Virtual Account" },
-    { id: "bni", name: "BNI Virtual Account" },
-    { id: "permata", name: "Permata Virtual Account" },
-    { id: "cimb", name: "CIMB Niaga Virtual Account" },
-  ],
+const API_URL = "http://127.0.0.1:8000/api";
+
+const formatCurrency = (value) => {
+  const num = Number(value ?? 0);
+  if (isNaN(num)) return "Rp 0";
+  return `Rp ${num.toLocaleString("id-ID")}`;
 };
-const shippingOptions = [
-  {
-    id: "reguler",
-    name: "Reguler",
-    duration: "Estimasi tiba dalam 2-4 hari kerja",
-    price: 25000,
-  },
-  {
-    id: "ekspres",
-    name: "Ekspres",
-    duration: "Estimasi tiba dalam 1-2 hari kerja",
-    price: 40000,
-  },
-];
-const formatCurrency = (value) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(Number(value) || 0);
 
-// --- KOMPONEN MODAL UNTUK UBAH ALAMAT ---
-const AddressModal = ({
-  isOpen,
-  onClose,
-  addresses,
-  selectedAddress,
-  onSelectAddress,
-}) => {
+// Modal Sukses
+const SuccessModal = ({ isOpen, onClose, onViewOrder }) => {
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all animate-fade-in-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center p-5 border-b">
-          <h3 className="text-xl font-bold text-gray-900">
-            Pilih Alamat Pengiriman
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-          {addresses.map((address) => (
-            <div
-              key={address.id}
-              onClick={() => onSelectAddress(address)}
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                selectedAddress.id === address.id
-                  ? "border-red-500 bg-red-50"
-                  : "border-gray-200 hover:border-red-300"
-              }`}
-            >
-              <p className="font-bold text-gray-800">
-                {address.name}{" "}
-                {address.isPrimary && (
-                  <span className="text-xs font-normal bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-2">
-                    Utama
-                  </span>
-                )}
-              </p>
-              <p className="text-sm font-semibold mt-1">
-                {address.recipient} ({address.phone})
-              </p>
-              <p className="text-sm text-gray-600">
-                {address.street}, {address.details}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="p-5 border-t">
-          <button
-            onClick={onClose}
-            className="w-full bg-red-600 text-white font-semibold py-3 rounded-lg hover:bg-red-700"
-          >
-            Selesai
-          </button>
-        </div>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center transform transition-all">
+        <CheckCircle size={56} className="text-green-500 mx-auto mb-4" />
+        <h3 className="text-xl font-bold text-gray-900">Pesanan Berhasil!</h3>
+        <p className="text-gray-600 text-sm mt-2 mb-6">
+          Terima kasih telah berbelanja di TENDERS PKU!
+        </p>
+        <button
+          onClick={onViewOrder}
+          className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold"
+        >
+          Lihat Detail Pesanan
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold"
+        >
+          Kembali ke Beranda
+        </button>
       </div>
     </div>
   );
 };
 
-// --- KOMPONEN UTAMA CHECKOUT PAGE ---
 const CheckoutPage = () => {
-  const { getSelectedCartItems } = useCart();
-  const { addOrder } = useOrders();
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const [productsToCheckout, setProductsToCheckout] = useState([]);
-  const [pricing, setPricing] = useState({
-    subtotal: 0,
-    shipping: shippingOptions[0].price,
-    serviceFee: 1000,
-    voucher: -5000,
-    coins: -80,
-  });
-  const [selectedShipping, setSelectedShipping] = useState(
-    shippingOptions[0].id
-  );
+  // Shipping options - ONLY PICKUP (delivery via GoFood/ShopeeFood)
+  const shippingOptions = [
+    {
+      id: "pickup",
+      name: "🏪 Ambil Sendiri (Pickup)",
+      duration: "Siap dalam 10-15 menit",
+      price: 0,
+      note: "Jl. Hangtuah (Depan Plaza Kado), Pekanbaru",
+    },
+  ];
+
+  const [selectedShipping, setSelectedShipping] = useState("pickup");
   const [selectedPayment, setSelectedPayment] = useState({
     group: "ewallet",
     option: "gopay",
   });
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [isAddressModalOpen, setAddressModalOpen] = useState(false);
-  const [currentAddress, setCurrentAddress] = useState(
-    userAddresses.find((addr) => addr.isPrimary)
+
+  // Payment options
+  const paymentOptions = {
+    ewallet: [
+      { id: "gopay", name: "GoPay", icon: "💚" },
+      { id: "ovo", name: "OVO", icon: "💜" },
+      { id: "dana", name: "DANA", icon: "💙" },
+      { id: "shopeepay", name: "ShopeePay", icon: "🛒" },
+      { id: "qris", name: "QRIS", icon: "📱" },
+    ],
+    bank: [
+      { id: "bca", name: "BCA", icon: "🏦" },
+      { id: "mandiri", name: "Mandiri", icon: "🏦" },
+      { id: "bri", name: "BRI", icon: "🏦" },
+      { id: "bni", name: "BNI", icon: "🏦" },
+    ],
+  };
+
+  // Load user dan cart dari database
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (e) {}
+    }
+    fetchCart();
+  }, []);
+
+  const fetchCart = async () => {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${API_URL}/cart`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.success) {
+        const items = response.data.data.items || [];
+        setCartItems(items);
+
+        const initialSelected = {};
+        items.forEach((item) => {
+          initialSelected[item.id] = true;
+        });
+        setSelectedItems(initialSelected);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getSelectedCartItems = () => {
+    return cartItems.filter((item) => selectedItems[item.id]);
+  };
+
+  const selectedProducts = getSelectedCartItems();
+  const subtotal = selectedProducts.reduce(
+    (sum, item) => sum + item.product.price * item.quantity,
+    0,
   );
 
-  useEffect(() => {
-    const selectedItems = getSelectedCartItems?.() ?? [];
-    setProductsToCheckout(
-      selectedItems.filter((item) => item && typeof item === "object")
+  const shippingCost = 0; // Pickup is free
+  const serviceFee = 1000;
+  const totalPayment = subtotal + shippingCost + serviceFee;
+
+  const handlePlaceOrder = async () => {
+    if (selectedProducts.length === 0) {
+      alert("Tidak ada produk yang dipilih");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Silakan login terlebih dahulu");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      // Format payment method
+      let paymentMethodValue = "";
+      if (selectedPayment.group === "ewallet") {
+        const ewalletNames = {
+          gopay: "GoPay",
+          ovo: "OVO",
+          dana: "DANA",
+          shopeepay: "ShopeePay",
+          qris: "QRIS",
+        };
+        paymentMethodValue =
+          ewalletNames[selectedPayment.option] || selectedPayment.option;
+      } else if (selectedPayment.group === "bank") {
+        const bankNames = {
+          bca: "BCA",
+          mandiri: "Mandiri",
+          bri: "BRI",
+          bni: "BNI",
+        };
+        paymentMethodValue =
+          bankNames[selectedPayment.option] || selectedPayment.option;
+      } else {
+        paymentMethodValue = "COD";
+      }
+
+      const orderData = {
+        items: selectedProducts.map((item) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+        total_amount: totalPayment,
+        shipping_method: "pickup",
+        payment_method: paymentMethodValue,
+      };
+
+      console.log("Sending order data:", JSON.stringify(orderData, null, 2));
+
+      const response = await axios.post(`${API_URL}/orders`, orderData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("Order response:", response.data);
+
+      if (response.data.success) {
+        // Clear selected items from cart
+        for (const item of selectedProducts) {
+          try {
+            await axios.delete(`${API_URL}/cart/${item.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          } catch (deleteError) {
+            console.error("Failed to delete cart item:", deleteError);
+          }
+        }
+
+        setShowSuccessModal(true);
+      } else {
+        alert(response.data.error || "Gagal membuat pesanan");
+      }
+    } catch (error) {
+      console.error("Failed to place order - Full error:", error);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+
+      let errorMessage = "Gagal memproses pesanan. ";
+      if (error.response?.data?.error) {
+        errorMessage += error.response.data.error;
+      } else if (error.message) {
+        errorMessage += error.message;
+      }
+      alert(errorMessage);
+    }
+  };
+
+  const handleViewOrder = () => {
+    setShowSuccessModal(false);
+    navigate("/riwayat-pesanan");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    setUser(null);
+    navigate("/");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500"></div>
+      </div>
     );
-  }, [getSelectedCartItems]);
-
-  useEffect(() => {
-    const subtotal = productsToCheckout.reduce(
-      (total, item) =>
-        total + Number(item?.price ?? 0) * Number(item?.qty ?? 1),
-      0
-    );
-    setPricing((prev) => ({ ...prev, subtotal }));
-  }, [productsToCheckout]);
-
-  const handleShippingChange = (option) => {
-    setSelectedShipping(option.id);
-    setPricing((prev) => ({ ...prev, shipping: option.price }));
-  };
-
-  const handleSelectAddress = (address) => {
-    setCurrentAddress(address);
-  };
-
-  const handlePaymentGroupChange = (group) => {
-    const defaultOption =
-      group === "ewallet"
-        ? paymentOptions.ewallet[0].id
-        : group === "bank"
-        ? paymentOptions.bank[0].id
-        : "cod";
-    setSelectedPayment({ group, option: defaultOption });
-  };
-
-  const handlePlaceOrder = () => {
-    const newOrder = {
-      id: `HAW-${Date.now()}`,
-      status: "Pesanan Dibuat", 
-      statusText: "Kami telah menerima pesananmu.", 
-      products: productsToCheckout,
-      pricing: pricing,
-      totalPaid: totalPayment,
-      shipping: shippingOptions.find((opt) => opt.id === selectedShipping),
-      paymentMethod: selectedPayment,
-      address: currentAddress,
-      orderTime: new Date().toLocaleString("id-ID", {
-        dateStyle: "long",
-        timeStyle: "short",
-      }),
-    };
-    addOrder(newOrder);
-    setShowSuccessDialog(false);
-    navigate(`/order/${newOrder.id}`);
-  };
-
-  const totalPayment = Object.values(pricing).reduce(
-    (acc, val) => acc + val,
-    0
-  );
+  }
 
   return (
     <>
-      <AddressModal
-        isOpen={isAddressModalOpen}
-        onClose={() => setAddressModalOpen(false)}
-        addresses={userAddresses}
-        selectedAddress={currentAddress}
-        onSelectAddress={handleSelectAddress}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onViewOrder={handleViewOrder}
       />
+
       <div className="bg-gray-50 min-h-screen font-sans">
-        <header className="w-full bg-white py-4 px-6 shadow-md sticky top-0 z-40">
-          <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <Link
-              to="/"
-              className="flex items-center text-red-600 font-bold text-2xl space-x-2"
-            >
-              <img
-                src="/images/logo hawai.png"
-                alt="Logo"
-                className="w-11 h-11 rounded-full border-2 border-red-600"
-              />
-              <span>HAWAII</span>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <Link
-                to="/notification"
-                className="p-2 rounded-full hover:bg-red-50"
-              >
-                <Bell size={20} className="text-gray-600" />
+        {/* HEADER */}
+        <header className="w-full bg-white shadow-md sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Link to="/" className="flex items-center space-x-2">
+                <img
+                  src="/images/Logo.png"
+                  alt="Tenders PKU"
+                  className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover"
+                />
+                <div>
+                  <span className="font-bold text-xl text-orange-600">
+                    TENDERS
+                  </span>
+                  <span className="font-bold text-xl text-gray-800"> PKU</span>
+                  <p className="text-xs text-gray-500 -mt-1">
+                    First Street Nashville Hot Chicken
+                  </p>
+                </div>
               </Link>
-              <Link
-                to="/promo-page"
-                className="p-2 rounded-full hover:bg-red-50"
-              >
-                <Percent size={20} className="text-gray-600" />
-              </Link>
-              <Link to="/cart" className="p-2 rounded-full hover:bg-red-50">
-                <ShoppingCart size={20} className="text-gray-600" />
-              </Link>
-              <Link to="/signin" className="p-2 rounded-full hover:bg-red-50">
-                <User size={20} className="text-gray-600" />
-              </Link>
+
+              <div className="hidden lg:flex flex-1 max-w-md mx-4 relative">
+                <input
+                  type="text"
+                  placeholder="Cari menu favoritmu..."
+                  className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100"
+                />
+                <Search
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Link
+                  to="/cart"
+                  className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600"
+                >
+                  <ShoppingCart size={20} />
+                </Link>
+                <Link
+                  to="/notifications"
+                  className="w-10 h-10 rounded-full bg-gray-100 text-orange-600"
+                >
+                  <Bell size={20} />
+                </Link>
+
+                {user ? (
+                  <div className="flex items-center space-x-2 ml-2">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full"
+                    >
+                      <User size={16} />
+                      <span>
+                        {user.full_name?.split(" ")[0] || user.username}
+                      </span>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-10 h-10 rounded-full bg-gray-100 text-red-500"
+                    >
+                      <LogOut size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="ml-2 px-4 py-2 bg-orange-500 text-white rounded-full flex items-center gap-2"
+                  >
+                    <User size={16} /> Login
+                  </Link>
+                )}
+
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="md:hidden w-10 h-10 rounded-full bg-gray-100"
+                >
+                  {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         <main className="container mx-auto px-4 py-8">
+          {/* Breadcrumb */}
           <div className="flex items-center justify-center text-sm text-gray-400 mb-8">
-            <span className="flex items-center">
-              Keranjang <ChevronRight size={16} className="mx-2" />
-            </span>
-            <span className="font-bold text-red-600 flex items-center">
-              Checkout <ChevronRight size={16} className="mx-2" />
-            </span>
+            <span>Keranjang</span>
+            <ChevronRight size={16} className="mx-2" />
+            <span className="font-bold text-orange-600">Checkout</span>
+            <ChevronRight size={16} className="mx-2" />
             <span>Pembayaran</span>
           </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                    <MapPin className="text-red-500 mr-3" size={24} />
-                    Alamat Pengiriman
-                  </h2>
-                  <button
-                    onClick={() => setAddressModalOpen(true)}
-                    className="flex items-center text-sm font-semibold text-red-600 hover:text-red-800 transition-colors"
-                  >
-                    <Edit3 size={14} className="mr-1" /> Ubah Alamat
-                  </button>
-                </div>
-                <div className="text-gray-700">
-                  <p className="font-bold">
-                    {currentAddress.recipient} ({currentAddress.phone})
-                  </p>
-                  <p>
-                    {currentAddress.street}, {currentAddress.details}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <Truck className="text-red-500 mr-3" size={24} />
-                  Metode Pengiriman
+              {/* Pickup Info */}
+              <div className="bg-orange-50 p-6 rounded-xl border border-orange-200">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center mb-4">
+                  <Store className="text-orange-500 mr-3" size={24} />
+                  Ambil Sendiri (Pickup)
                 </h2>
-                <div className="space-y-4">
-                  {shippingOptions.map((option) => (
-                    <div
-                      key={option.id}
-                      onClick={() => handleShippingChange(option)}
-                      className={`p-4 border rounded-lg cursor-pointer flex justify-between items-center ${
-                        selectedShipping === option.id
-                          ? "border-red-500 ring-2 ring-red-200"
-                          : "border-gray-200"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-bold text-gray-800">{option.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {option.duration}
-                        </p>
-                      </div>
-                      <p className="font-semibold">
-                        {formatCurrency(option.price)}
-                      </p>
+                <div className="text-gray-700">
+                  <p className="font-semibold">📍 Lokasi Pengambilan:</p>
+                  <p>Jl. Hangtuah (Depan Plaza Kado)</p>
+                  <p>Pekanbaru, Riau</p>
+                  <p className="text-sm text-green-600 mt-2">
+                    ✓ Siap dalam 10-15 menit setelah pesanan dikonfirmasi
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    ⚠️ Harap bawa bukti pesanan saat mengambil
+                  </p>
+                  <div className="mt-4 p-3 bg-white rounded-lg border border-orange-100">
+                    <p className="text-sm font-semibold text-orange-600 mb-2">
+                      🛵 Pengiriman via Aplikasi Partner:
+                    </p>
+                    <div className="flex gap-3">
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        GoFood
+                      </span>
+                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                        ShopeeFood
+                      </span>
                     </div>
-                  ))}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Untuk pengiriman, silakan pesan melalui aplikasi GoFood
+                      atau ShopeeFood
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm">
+
+              {/* Metode Pembayaran */}
+              <div className="bg-white p-6 rounded-xl shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <CreditCard className="text-red-500 mr-3" size={24} />
+                  <CreditCard className="text-orange-500 mr-3" size={24} />
                   Metode Pembayaran
                 </h2>
                 <div className="space-y-3">
                   <div
-                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    className={`p-4 border rounded-xl cursor-pointer ${
                       selectedPayment.group === "ewallet"
-                        ? "border-red-500 ring-2 ring-red-200"
+                        ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    onClick={() => handlePaymentGroupChange("ewallet")}
+                    onClick={() =>
+                      setSelectedPayment({ group: "ewallet", option: "gopay" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Wallet className="mr-3 text-blue-500" size={20} />
+                      <Wallet className="mr-3 text-blue-500" size={20} />{" "}
                       E-Wallet / QRIS
                     </p>
                     {selectedPayment.group === "ewallet" && (
                       <div className="mt-4 pl-8">
-                        <label
-                          htmlFor="ewallet-select"
-                          className="block text-sm font-medium text-gray-700 mb-2"
-                        >
-                          Pilih E-Wallet:
-                        </label>
                         <select
-                          id="ewallet-select"
                           value={selectedPayment.option}
                           onChange={(e) =>
-                            setSelectedPayment((prev) => ({
-                              ...prev,
+                            setSelectedPayment({
+                              ...selectedPayment,
                               option: e.target.value,
-                            }))
+                            })
                           }
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-2 border rounded-lg focus:ring-orange-500"
                         >
-                          <option disabled>-- Pilih --</option>
                           {paymentOptions.ewallet.map((opt) => (
                             <option key={opt.id} value={opt.id}>
-                              {opt.name}
+                              {opt.icon} {opt.name}
                             </option>
                           ))}
                         </select>
@@ -408,41 +457,34 @@ const CheckoutPage = () => {
                     )}
                   </div>
                   <div
-                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    className={`p-4 border rounded-xl cursor-pointer ${
                       selectedPayment.group === "bank"
-                        ? "border-red-500 ring-2 ring-red-200"
+                        ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    onClick={() => handlePaymentGroupChange("bank")}
+                    onClick={() =>
+                      setSelectedPayment({ group: "bank", option: "bca" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Landmark className="mr-3 text-purple-500" size={20} />
+                      <Landmark className="mr-3 text-purple-500" size={20} />{" "}
                       Transfer Bank (Virtual Account)
                     </p>
                     {selectedPayment.group === "bank" && (
                       <div className="mt-4 pl-8">
-                        <label
-                          htmlFor="bank-select"
-                          className="block text-sm font-medium text-gray-700 mb-2"
-                        >
-                          Pilih Bank:
-                        </label>
                         <select
-                          id="bank-select"
                           value={selectedPayment.option}
                           onChange={(e) =>
-                            setSelectedPayment((prev) => ({
-                              ...prev,
+                            setSelectedPayment({
+                              ...selectedPayment,
                               option: e.target.value,
-                            }))
+                            })
                           }
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full p-2 border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-2 border rounded-lg focus:ring-orange-500"
                         >
-                          <option disabled>-- Pilih --</option>
                           {paymentOptions.bank.map((opt) => (
                             <option key={opt.id} value={opt.id}>
-                              {opt.name}
+                              {opt.icon} {opt.name}
                             </option>
                           ))}
                         </select>
@@ -450,121 +492,118 @@ const CheckoutPage = () => {
                     )}
                   </div>
                   <div
-                    className={`p-4 border rounded-lg cursor-pointer ${
+                    className={`p-4 border rounded-xl cursor-pointer ${
                       selectedPayment.group === "cod"
-                        ? "border-red-500 ring-2 ring-red-200"
+                        ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    onClick={() => handlePaymentGroupChange("cod")}
+                    onClick={() =>
+                      setSelectedPayment({ group: "cod", option: "cod" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Building className="mr-3 text-green-500" size={20} />
-                      COD (Bayar di Tempat)
+                      <Building className="mr-3 text-green-500" size={20} /> COD
+                      (Bayar di Tempat)
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Right Column - Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm p-6 sticky top-28">
+              <div className="bg-white rounded-xl shadow-sm p-6 sticky top-28">
                 <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <ShoppingCart className="text-red-500 mr-3" size={24} />
+                  <ShoppingCart className="text-orange-500 mr-3" size={24} />
                   Ringkasan Pesanan
                 </h2>
-                <div className="space-y-4 border-b pb-4 mb-4 max-h-60 overflow-y-auto pr-2">
-                  {productsToCheckout.length === 0 ? (
+
+                <div className="space-y-4 border-b pb-4 mb-4 max-h-60 overflow-y-auto">
+                  {selectedProducts.length === 0 ? (
                     <p className="text-gray-500 text-sm">
-                      Keranjang Anda kosong.
+                      Tidak ada produk dipilih
                     </p>
                   ) : (
-                    productsToCheckout.map((product, idx) => (
+                    selectedProducts.map((item) => (
                       <div
-                        key={product?.id ?? idx}
-                        className="flex items-start space-x-3"
+                        key={item.id}
+                        className="flex items-start gap-3 pb-3 border-b last:border-b-0"
                       >
                         <img
                           src={
-                            product?.imageUrl ||
-                            "https://via.placeholder.com/64"
+                            item.product.image_url || "/images/default-product.png"
                           }
-                          alt={product?.name || "Produk"}
-                          className="w-14 h-14 rounded-md border"
+                          alt={item.product.name}
+                          className="w-12 h-12 rounded-lg object-cover bg-gray-100"
+                          onError={(e) => {
+                            e.target.src = "/images/default-product.png";
+                          }}
                         />
                         <div className="flex-grow">
-                          <p className="text-sm font-semibold text-gray-800 leading-tight">
-                            {product?.name}
+                          <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                            {item.product.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Qty: {product.qty}
+                            Qty: {item.quantity}
                           </p>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">
-                          {formatCurrency(product.price * product.qty)}
+                        <p className="text-sm font-semibold text-orange-600">
+                          {formatCurrency(item.product.price * item.quantity)}
                         </p>
                       </div>
                     ))
                   )}
                 </div>
+
                 <div className="space-y-2 border-b pb-4 mb-4">
-                  <div className="flex justify-between text-sm text-gray-600">
+                  <div className="flex justify-between text-sm">
                     <span>Subtotal Produk</span>
-                    <span>{formatCurrency(pricing.subtotal)}</span>
+                    <span>{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Ongkir</span>
-                    <span>{formatCurrency(pricing.shipping)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
+                  <div className="flex justify-between text-sm">
                     <span>Biaya Layanan</span>
-                    <span>{formatCurrency(pricing.serviceFee)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Voucher</span>
-                    <span>-{formatCurrency(Math.abs(pricing.voucher))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-yellow-600">
-                    <span>Hawaii Coin</span>
-                    <span>-{formatCurrency(Math.abs(pricing.coins))}</span>
+                    <span>{formatCurrency(serviceFee)}</span>
                   </div>
                 </div>
+
                 <div className="flex justify-between items-center mb-6">
                   <span className="text-lg font-bold text-gray-900">Total</span>
-                  <span className="text-2xl font-extrabold text-red-600">
+                  <span className="text-2xl font-extrabold text-orange-600">
                     {formatCurrency(totalPayment)}
                   </span>
                 </div>
+
                 <button
-                  onClick={() => setShowSuccessDialog(true)}
-                  className="w-full bg-red-600 text-white font-bold text-lg py-3 rounded-lg shadow-lg hover:bg-red-700 transition-transform hover:scale-105 flex items-center justify-center"
+                  onClick={handlePlaceOrder}
+                  className="w-full bg-orange-500 text-white font-bold text-lg py-3 rounded-xl shadow-md hover:bg-orange-600 transition flex items-center justify-center gap-2"
                 >
-                  <CheckCircle size={20} className="mr-2" /> Bayar Sekarang
+                  <CheckCircle size={20} /> Bayar Sekarang
                 </button>
+
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-400">
+                    Dengan melanjutkan, Anda menyetujui{" "}
+                    <Link to="/terms" className="text-orange-500">
+                      Syarat & Ketentuan
+                    </Link>{" "}
+                    yang berlaku
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </main>
-        {showSuccessDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center transform transition-all animate-fade-in-up">
-              <CheckCircle size={56} className="text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900">
-                Pesanan Berhasil!
-              </h3>
-              <p className="text-gray-600 text-sm mt-2 mb-6">
-                Terima kasih telah berbelanja. Anda akan diarahkan ke halaman
-                detail pesanan.
-              </p>
-              <button
-                onClick={handlePlaceOrder}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
-              >
-                Lihat Detail Pesanan
-              </button>
-            </div>
+
+        <footer className="w-full bg-gray-900 text-white py-6 mt-8">
+          <div className="text-center text-sm">
+            <p>© 2024 TENDERS PKU - First Street Nashville Hot Chicken</p>
+            <p className="mt-1 text-gray-400">
+              Jl. Hangtuah (Depan Plaza Kado), Pekanbaru
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Tersedia di GoFood & ShopeeFood
+            </p>
           </div>
-        )}
-        <footer className="w-full text-center py-6 text-xs text-gray-500 mt-auto">
-          © {new Date().getFullYear()} HAWAII. All rights reserved.
         </footer>
       </div>
     </>

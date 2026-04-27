@@ -1,342 +1,452 @@
 // src/assets/pages/CartPage.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, ShoppingCart, User, Percent, Bell, Trash2, ChevronDown, Plus, Minus, Info, ChevronRight } from "lucide-react";
-import { useCart } from '../../assets/contexts/CartContext'; // Pastikan path ini benar!
+import {
+  Search,
+  ShoppingCart,
+  User,
+  Bell,
+  Percent,
+   FileText,
+  Trash2,
+  ChevronDown,
+  Plus,
+  Minus,
+  Info,
+  ChevronRight,
+  LogOut,
+  Clock,
+  MapPin,
+  Phone,
+  Instagram,
+  Facebook,
+  Twitter,
+  Menu,
+  X,
+  Flame,
+  Package,
+  Truck,
+  ArrowLeft,
+  CreditCard,
+  ShieldCheck,
+} from "lucide-react";
+import axios from "axios";
 
-// Fungsi helper untuk memformat mata uang
-const formatCurrency = (number) => {
-  const num = number ?? 0;
-  if (typeof num !== "number") return "Rp 0";
-  return num.toLocaleString("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
-};
+const API_URL = "http://127.0.0.1:8000/api";
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const {
-    cartItems,
-    updateQuantity,
-    removeItem,
-    toggleItemSelection,
-    toggleShopSelection,
-    toggleSelectAll,
-    totalProductsSelected,
-    totalPrice
-  } = useCart(); // Ambil state dan fungsi dari CartContext
+  const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItems, setSelectedItems] = useState({});
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [totalSelected, setTotalSelected] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // State lokal untuk 'Pilih Semua' di bagian footer
-  const [selectAllFooter, setSelectAllFooter] = useState(false);
-
+  // Load user dari localStorage
   useEffect(() => {
-    const allSelected = cartItems.length > 0 && cartItems.every(shop => 
-      shop.products.length > 0 && shop.products.every(p => p.selected)
-    );
-    setSelectAllFooter(allSelected);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch(e) {}
+    }
+  }, []);
 
-    console.log("CartPage - cartItems updated:", cartItems);
-    console.log("Total Selected Products:", totalProductsSelected);
-    console.log("Total Price:", totalPrice);
-    
-  }, [cartItems]); // Dependency array harus memantau `cartItems`
+  // Fetch cart dari database
+  useEffect(() => {
+    fetchCart();
+  }, []);
 
-  // Handle 'Pilih Semua' di footer
-  const handleSelectAllFooter = (event) => {
-    const isChecked = event.target.checked;
-    toggleSelectAll(isChecked);
-  };
+  // Hitung total setiap kali cartItems atau selectedItems berubah
+  useEffect(() => {
+    calculateTotal();
+  }, [cartItems, selectedItems]);
 
-  // Handle 'Hapus' item yang dipilih
-  const handleDeleteSelectedItems = () => {
-    const selectedItems = cartItems.flatMap(shop =>
-      shop.products.filter(product => product.selected)
-    );
+  const fetchCart = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-    if (selectedItems.length > 0) {
-      // Hapus item satu per satu. Ini akan memicu render ulang.
-      selectedItems.forEach(item => removeItem(item.shopId || item.shop.id, item.itemId));
-    } else {
-      alert("Pilih produk yang ingin dihapus terlebih dahulu.");
+    try {
+      const response = await axios.get(`${API_URL}/cart`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        const items = response.data.data.items || [];
+        setCartItems(items);
+        
+        // Initialize selected items
+        const initialSelected = {};
+        items.forEach(item => {
+          initialSelected[item.id] = true;
+        });
+        setSelectedItems(initialSelected);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart:", error);
+    } finally {
+      setLoading(false);
     }
   };
-  
-  // Fungsi untuk menampilkan message box (seperti yang digunakan di HomePage)
-  const displayMessageBox = (message) => {
-    const messageBox = document.createElement("div");
-    messageBox.className =
-      "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50";
-    messageBox.innerHTML = `
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 text-center">
-        <p class="text-lg text-gray-800 mb-4">${message}</p>
-        <button id="closeMessageBox" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">OK</button>
-      </div>
-    `;
-    document.body.appendChild(messageBox);
-    document.getElementById("closeMessageBox").onclick = () => {
-      document.body.removeChild(messageBox);
-    };
+
+  const calculateTotal = () => {
+    let total = 0;
+    let selected = 0;
+    
+    cartItems.forEach(item => {
+      if (selectedItems[item.id]) {
+        total += item.product.price * item.quantity;
+        selected += item.quantity;
+      }
+    });
+    
+    setTotalPrice(total);
+    setTotalSelected(selected);
   };
+
+  const updateQuantity = async (cartId, productId, currentQty, delta) => {
+    const newQty = currentQty + delta;
+    if (newQty < 1) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      await axios.put(`${API_URL}/cart/${cartId}`, {
+        quantity: newQty
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update local state
+      setCartItems(prev => prev.map(item => 
+        item.id === cartId ? { ...item, quantity: newQty } : item
+      ));
+    } catch (error) {
+      console.error("Failed to update quantity:", error);
+      alert("Gagal mengupdate jumlah");
+    }
+  };
+
+  const removeItem = async (cartId) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    if (!window.confirm("Hapus item dari keranjang?")) return;
+    
+    try {
+      await axios.delete(`${API_URL}/cart/${cartId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setCartItems(prev => prev.filter(item => item.id !== cartId));
+      setSelectedItems(prev => {
+        const newSelected = { ...prev };
+        delete newSelected[cartId];
+        return newSelected;
+      });
+    } catch (error) {
+      console.error("Failed to remove item:", error);
+      alert("Gagal menghapus item");
+    }
+  };
+
+  const toggleSelectItem = (cartId) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [cartId]: !prev[cartId]
+    }));
+  };
+
+  const toggleSelectAll = () => {
+    const allSelected = cartItems.length > 0 && cartItems.every(item => selectedItems[item.id]);
+    const newSelected = {};
+    cartItems.forEach(item => {
+      newSelected[item.id] = !allSelected;
+    });
+    setSelectedItems(newSelected);
+  };
+
+  const handleDeleteSelected = async () => {
+    const selectedCartIds = cartItems.filter(item => selectedItems[item.id]).map(item => item.id);
+    if (selectedCartIds.length === 0) {
+      alert("Pilih produk yang ingin dihapus terlebih dahulu");
+      return;
+    }
+    
+    if (!window.confirm(`Hapus ${selectedCartIds.length} item dari keranjang?`)) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      for (const cartId of selectedCartIds) {
+        await axios.delete(`${API_URL}/cart/${cartId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      setCartItems(prev => prev.filter(item => !selectedItems[item.id]));
+      setSelectedItems({});
+    } catch (error) {
+      console.error("Failed to delete items:", error);
+      alert("Gagal menghapus item");
+    }
+  };
+
+  const handleCheckout = () => {
+    if (totalSelected === 0) {
+      alert("Pilih minimal 1 produk untuk checkout");
+      return;
+    }
+    navigate("/checkout");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    setUser(null);
+    navigate("/");
+  };
+
+  const formatCurrency = (value) => {
+    const num = Number(value ?? 0);
+    if (isNaN(num)) return "Rp 0";
+    return `Rp ${num.toLocaleString("id-ID")}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memuat keranjang...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col items-center min-h-screen bg-gray-100">
-      {/* Header (Putih dengan logo Hawaii) */}
-      <div className="w-full bg-white py-3 px-4 md:px-8 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between space-x-4">
-          <div className="flex items-center space-x-2 text-red-600 font-bold text-2xl">
-            <Link to="/">
-              <img
-                src="/images/logo hawai.png"
-                alt="Logo Hawai"
-                className="w-11 h-11 rounded-full border-2 border-red-600"
-              />
+      {/* HEADER */}
+      <header className="w-full bg-white shadow-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center space-x-2">
+              <img src="/images/Logo.png" alt="Tenders PKU" className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover" />
+              <div>
+                <span className="font-bold text-xl text-orange-600">TENDERS</span>
+                <span className="font-bold text-xl text-gray-800"> PKU</span>
+                <p className="text-xs text-gray-500 -mt-1">First Street Nashville Hot Chicken</p>
+              </div>
             </Link>
-            <span>HAWAII</span>
-          </div>
-          <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold text-gray-800">Keranjang Belanja</h1>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Link to="/notification" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition">
-              <Bell size={20} />
-            </Link>
-            <Link to="/promo-page" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition">
-              <Percent size={20} />
-            </Link>
-            <Link to="/cart" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition">
-              <ShoppingCart size={20} />
-            </Link>
-            <Link to="/signin" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-red-600 shadow-md hover:bg-gray-200 transition">
-              <User size={20} />
-            </Link>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-4xl mx-auto w-full bg-white rounded-lg shadow-lg my-6 md:my-8 overflow-hidden">
-        {/* Header Tabel/Daftar Produk */}
-        <div className="flex items-center p-4 border-b border-gray-200 text-gray-500 text-sm font-semibold">
-          <div className="w-1/12 flex-shrink-0">
-            <input
-              type="checkbox"
-              className="form-checkbox text-red-600 rounded"
-              checked={selectAllFooter}
-              onChange={handleSelectAllFooter}
-            />
-          </div>
-          <div className="w-4/12 md:w-5/12 flex-grow">Produk</div>
-          <div className="w-2/12 hidden md:block text-center">Harga Satuan</div>
-          <div className="w-1/12 hidden md:block text-center">Kuantitas</div>
-          <div className="w-2/12 hidden md:block text-right">Total Harga</div>
-          <div className="w-1/12 text-right">Aksi</div>
-        </div>
+            <div className="hidden lg:flex flex-1 max-w-md mx-4 relative">
+              <input type="text" placeholder="Cari menu favoritmu..." className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100" />
+              <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
 
-        {/* Info Promo di Atas Tabel */}
-        <div className="bg-red-50 p-3 flex items-center justify-between text-red-600 text-sm font-semibold">
-          <span className="flex items-center">
-            Promo Menarik Hari Ini!
-            <Info size={16} className="ml-1" />
-          </span>
-          <button className="text-blue-600 hover:underline" onClick={() => displayMessageBox("Fungsi 'Lihat Detail Promo' akan diimplementasikan!")}>Lihat Detail</button>
-        </div>
+            <div className="flex items-center space-x-2">
+              <Link to="/cart" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+                <ShoppingCart size={20} />
+              </Link>
 
-        {/* Daftar Item Keranjang */}
-        {cartItems && cartItems.length > 0 ? (
-          cartItems.map(shop => (
-            shop.products && shop.products.length > 0 && (
-              <div key={shop.id} className="border-b border-gray-200 last:border-b-0">
-                {/* Header Toko */}
-                <div className="p-4 flex items-center space-x-2 border-b border-gray-100 bg-gray-50">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox text-red-600 rounded"
-                    checked={shop.products.every(p => p.selected)} // Menggunakan state 'selected' dari produk
-                    onChange={(e) => toggleShopSelection(shop.id, e.target.checked)} // Menggunakan fungsi dari context
-                  />
-                  {shop.isMall && (
-                    <span className="bg-red-600 text-white px-2 py-0.5 text-xs font-bold rounded-sm">Mall.ORI</span>
-                  )}
-                  <span className="font-semibold text-gray-800">{shop.shopName}</span>
-                  {shop.shopName && ( // Hanya tampilkan tombol chat jika ada nama toko
-                    <Link to="#" className="text-red-600 hover:text-red-700" onClick={() => displayMessageBox("Fungsi 'Chat Toko' akan diimplementasikan!")}>
-                      <img src="https://img.icons8.com/ios-filled/24/null/mail.png" alt="Chat" className="w-5 h-5" />
-                    </Link>
-                  )}
-                  <button className="text-gray-500 hover:text-gray-700 ml-auto" onClick={() => displayMessageBox("Opsi 'Lebih Lanjut' akan diimplementasikan!")}>
-                    <ChevronDown size={20} />
+              <Link to="/riwayat-pesanan" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+                <FileText size={20} />
+              </Link>
+
+              <Link to="/notifications" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+                <Bell size={20} />
+              </Link>
+
+              {user ? (
+                <div className="flex items-center space-x-2 ml-2">
+                  <Link to="/profile" className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full">
+                    <User size={16} />
+                    <span>{user.full_name?.split(" ")[0] || user.username}</span>
+                  </Link>
+                  <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-gray-100 text-red-500">
+                    <LogOut size={18} />
                   </button>
                 </div>
+              ) : (
+                <Link to="/login" className="ml-2 px-4 py-2 bg-orange-500 text-white rounded-full flex items-center gap-2">
+                  <User size={16} /> Login
+                </Link>
+              )}
 
-                {/* Produk dalam Toko */}
-                {shop.products.map(product => (
-                  <div key={product.itemId} className="p-4 flex items-center border-b border-gray-100 last:border-b-0">
-                    <div className="w-1/12 flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        className="form-checkbox text-red-600 rounded"
-                        checked={product.selected} // Menggunakan state 'selected' dari produk
-                        onChange={() => toggleItemSelection(shop.id, product.itemId)} // Menggunakan fungsi dari context
-                      />
-                    </div>
-                    <div className="w-4/12 md:w-5/12 flex-grow flex items-center">
-                      <img src={product.imageUrl} alt={product.name} className="w-20 h-20 object-contain mr-3 border rounded" />
-                      <div>
-                        <p className="text-gray-800 font-medium line-clamp-2">{product.name}</p>
-                        {product.variant && (
-                          <span className="text-sm text-gray-500 flex items-center group">
-                            {product.variant} <ChevronDown size={14} className="ml-1 text-gray-400 group-hover:text-gray-600" />
-                          </span>
-                        )}
-                        {product.hasDiscount && (
-                          <span className="bg-red-100 text-red-600 text-xs font-semibold px-1 py-0.5 rounded mt-1 inline-block">
-                            Diskon {product.discountPercent}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="w-2/12 hidden md:block text-center">
-                      {product.hasDiscount && (
-                        <p className="text-gray-500 text-xs line-through">{formatCurrency(product.originalPrice)}</p>
+              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden w-10 h-10 rounded-full bg-gray-100">
+                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {isMenuOpen && (
+            <div className="md:hidden mt-4 pb-4 border-t pt-4">
+              <div className="flex flex-col space-y-3">
+                <Link to="/" className="text-gray-700">Home</Link>
+                <Link to="/menu" className="text-gray-700">Menu</Link>
+                <Link to="/promo" className="text-gray-700">Promo</Link>
+                <Link to="/location" className="text-gray-700">Location</Link>
+                <Link to="/contact" className="text-gray-700">Contact</Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* MAIN CONTENT */}
+      <div className="max-w-6xl mx-auto w-full px-4 py-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Link to="/" className="text-gray-500 hover:text-orange-500">
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-800">Keranjang Belanja</h1>
+        </div>
+
+        {cartItems.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+            <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShoppingCart size={40} className="text-orange-500" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Keranjang Kosong</h2>
+            <p className="text-gray-500 mb-6">Belum ada produk di keranjang Anda</p>
+            <Link to="/" className="px-6 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
+              Mulai Belanja
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* TABLE HEADER */}
+            <div className="bg-white rounded-t-2xl shadow-md overflow-hidden">
+              <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b text-gray-600 text-sm font-semibold">
+                <div className="col-span-1">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                    checked={cartItems.length > 0 && cartItems.every(item => selectedItems[item.id])}
+                    onChange={toggleSelectAll}
+                  />
+                </div>
+                <div className="col-span-5 md:col-span-6">Produk</div>
+                <div className="col-span-2 text-center hidden md:block">Harga</div>
+                <div className="col-span-2 text-center">Jumlah</div>
+                <div className="col-span-2 text-right hidden md:block">Total</div>
+                <div className="col-span-1 text-right"></div>
+              </div>
+
+              {/* CART ITEMS */}
+              {cartItems.map((item) => (
+                <div key={item.id} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-orange-50 transition">
+                  <div className="col-span-1">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                      checked={selectedItems[item.id] || false}
+                      onChange={() => toggleSelectItem(item.id)}
+                    />
+                  </div>
+                  
+                  <div className="col-span-5 md:col-span-6 flex gap-3">
+                    <img
+                      src={item.product.image_url || "/images/default-product.png"}
+                      alt={item.product.name}
+                      className="w-16 h-16 rounded-lg object-cover bg-gray-100"
+                      onError={(e) => { e.target.src = "/images/default-product.png"; }}
+                    />
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{item.product.name}</h3>
+                      <p className="text-xs text-gray-500">{item.product.category}</p>
+                      {item.product.is_popular && (
+                        <span className="inline-flex items-center gap-1 text-xs text-orange-500 mt-1">
+                          <Flame size={10} /> Best Seller
+                        </span>
                       )}
-                      <p className="text-gray-800 font-semibold">{formatCurrency(product.currentPrice)}</p>
                     </div>
-                    <div className="w-1/12 flex justify-center items-center">
-                      <div className="flex items-center border border-gray-300 rounded-sm">
-                        <button
-                          className="p-1 text-gray-600 hover:bg-gray-100"
-                          onClick={() => updateQuantity(shop.id, product.itemId, -1)} // Menggunakan fungsi dari context
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <input
-                          type="text"
-                          value={product.qty}
-                          readOnly
-                          className="w-10 text-center border-l border-r border-gray-300 py-1 text-sm outline-none"
-                        />
-                        <button
-                          className="p-1 text-gray-600 hover:bg-gray-100"
-                          onClick={() => updateQuantity(shop.id, product.itemId, 1)} // Menggunakan fungsi dari context
-                        >
-                          <Plus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="w-2/12 text-right">
-                      <p className="text-red-600 font-semibold">{formatCurrency(product.currentPrice * product.qty)}</p>
-                    </div>
-                    <div className="w-1/12 text-right">
+                  </div>
+                  
+                  <div className="col-span-2 text-center hidden md:block">
+                    <span className="font-semibold text-gray-800">{formatCurrency(item.product.price)}</span>
+                  </div>
+                  
+                  <div className="col-span-3 md:col-span-2 flex justify-center">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                       <button
-                        className="text-gray-500 hover:text-red-600"
-                        onClick={() => removeItem(shop.id, product.itemId)} // Menggunakan fungsi dari context
+                        onClick={() => updateQuantity(item.id, item.product_id, item.quantity, -1)}
+                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
                       >
-                        <Trash2 size={20} />
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-10 text-center text-gray-800">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.product_id, item.quantity, 1)}
+                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                      >
+                        <Plus size={14} />
                       </button>
                     </div>
                   </div>
-                ))}
+                  
+                  <div className="col-span-2 text-right hidden md:block">
+                    <span className="font-bold text-orange-600">{formatCurrency(item.product.price * item.quantity)}</span>
+                  </div>
+                  
+                  <div className="col-span-2 md:col-span-1 text-right">
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="p-2 text-gray-400 hover:text-red-500 transition"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                {/* Voucher Toko */}
-                {shop.hasShopVoucher && (
-                  <div className="p-4 flex items-center justify-between border-b border-gray-100">
-                    <span className="text-blue-600 flex items-center">
-                      <img src="https://img.icons8.com/ios-filled/20/null/discount.png" alt="Voucher" className="mr-2 h-5 w-5" />
-                      Tambahkan Voucher Toko
-                    </span>
-                    <ChevronRight size={20} className="text-blue-600" />
+            {/* SUMMARY */}
+            <div className="bg-white rounded-b-2xl shadow-md mt-4 p-5">
+              <div className="flex flex-wrap justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleDeleteSelected}
+                    className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={18} /> Hapus yang Dipilih
+                  </button>
+                </div>
+                
+                <div className="text-right">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="text-gray-500 text-sm">Total ({totalSelected} produk)</p>
+                      <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalPrice)}</p>
+                    </div>
+                    <button
+                      onClick={handleCheckout}
+                      disabled={totalSelected === 0}
+                      className="px-8 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Checkout
+                    </button>
                   </div>
-                )}
-                {/* Gratis Ongkir */}
-                <div className="p-4 flex items-center justify-between">
-                  <div className="text-green-600 flex items-center">
-                    <img src="/images/delivery-truck.png" alt="Free Shipping" className="h-5 w-5 mr-2" />
-                    Gratis Ongkir s/d Rp40.000 dengan min. belanja Rp0; Gratis Ongkir s/d Rp500.000 dengan min. belanja Rp300.000
-                  </div>
-                  <Link to="#" className="text-blue-600 hover:underline text-sm" onClick={() => displayMessageBox("Fungsi 'Pelajari lebih lanjut ongkir' akan diimplementasikan!")}>Pelajari lebih lanjut</Link>
                 </div>
               </div>
-            )
-          ))
-        ) : (
-          <div className="text-center text-gray-500 py-10">Keranjang Anda kosong.</div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Bagian Bawah: Pilih Semua, Hapus, Total, Checkout */}
-      <div className="sticky bottom-0 w-full bg-white border-t border-gray-200 shadow-lg py-4 px-4 md:px-8">
-        <div className="max-w-4xl mx-auto flex flex-wrap justify-between items-center">
-          {/* Kiri: Pilih Semua, Hapus, Pindahkan */}
-          <div className="flex items-center space-x-4 mb-4 md:mb-0 w-full md:w-auto">
-            <input
-              type="checkbox"
-              className="form-checkbox text-red-600 rounded"
-              checked={selectAllFooter}
-              onChange={handleSelectAllFooter}
-            />
-            <span className="text-gray-800">Pilih Semua ({totalProductsSelected})</span>
-            <button className="text-gray-500 hover:text-red-600 flex items-center ml-4" onClick={handleDeleteSelectedItems}>
-              <Trash2 size={20} className="mr-1" /> Hapus
-            </button>
-            <button className="text-blue-600 hover:underline hidden md:block" onClick={() => displayMessageBox("Fungsi 'Pindahkan ke Favorit' akan diimplementasikan!")}>Pindahkan ke Favorit Saya</button>
-          </div>
-
-          {/* Kanan: Total & Checkout */}
-          <div className="flex items-center justify-end w-full md:w-auto">
-            <div className="flex flex-col items-end mr-4">
-              <div className="flex items-center text-gray-800 font-semibold mb-1">
-                Total ({totalProductsSelected} produk):
-                <span className="ml-2 text-red-600 font-bold text-xl">{formatCurrency(totalPrice)}</span>
-              </div>
-              <div className="flex items-center text-gray-500 text-xs">
-                <img src="https://placehold.co/16x16/FFD700/000000?text=K" alt="Koin" className="mr-1" />
-                Tukarkan 80 Koin Hawaii
-                <ChevronRight size={14} className="ml-1" />
-              </div>
-            </div>
-            <button
-              className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
-              onClick={() => navigate('/checkout')} // Menghubungkan ke halaman Checkout
-              disabled={totalProductsSelected === 0} // Disable jika tidak ada produk terpilih
-            >
-              Checkout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer (Mirroring HomePage footer) */}
-      <footer className="w-full bg-red-800 text-white py-8 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="font-bold text-white mb-4">QUICK LINKS</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link to="#" className="hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link to="#" className="hover:text-white transition-colors">Pengaduan Pelanggan</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-white mb-4">Contact Us</h3>
-            <ul className="space-y-2 text-sm">
-              <li>📞 081378237282</li>
-              <li>📧 hawaii@gmail.com</li>
-              <li>☎️ 1334314</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-white mb-4">Follow Us</h3>
-            <div className="flex space-x-4 text-2xl text-white">
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors"><i className="fab fa-twitter"></i></a>
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors"><i className="fab fa-facebook"></i></a>
-              <a href="https://www.instagram.com/hawaiiswalayanpku?igsh=amN0c2VkeGh2eXhm" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><i className="fab fa-instagram"></i></a>
-              <a href="https://www.tiktok.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors"><i className="fab fa-tiktok"></i></a>
-            </div>
-          </div>
-          <div>
-            <h3 className="font-bold text-white mb-4">Location</h3>
-            <p className="text-sm">Jl Yos Sudarso<br />Jl Juanda Tarumai<br />Jl Hitam Ujung<br />Simpang Jengkol<br />Jl Durian No.1E Payung Sekaki</p>
-          </div>
-        </div>
-        <div className="text-center text-white-500 text-xs mt-8 border-t border-gray-700 pt-4">
-          © 2024 HAWAII. All rights reserved.
+      {/* FOOTER */}
+      <footer className="w-full bg-gray-900 text-white py-8 mt-8">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
+          <p>© 2024 TENDERS PKU - First Street Nashville Hot Chicken</p>
+          <p className="mt-2 text-gray-400">Jl. Hangtuah (Depan Plaza Kado), Pekanbaru</p>
         </div>
       </footer>
     </div>

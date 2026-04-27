@@ -59,6 +59,8 @@ export const createProduct = (data) => api.post('/products', data);
 export const updateProduct = (id, data) => api.put(`/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/products/${id}`);
 
+
+
 // ============================================
 // CATEGORY API
 // ============================================
@@ -76,5 +78,67 @@ export const addToCart = (data) => api.post('/cart', data);
 export const updateCart = (id, data) => api.put(`/cart/${id}`, data);
 export const removeFromCart = (id) => api.delete(`/cart/${id}`);
 export const getCartCount = () => api.get('/cart/count');
+
+
+// Tambahkan ini
+
+export const submitComplaint = (data) => {
+  const token = localStorage.getItem('token');
+  return axios.post(`${API_URL}/complaints`, data, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+};
+
+export const getMyComplaints = () => {
+  const token = localStorage.getItem('token');
+  return axios.get(`${API_URL}/complaints/my`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+// ========== ADMIN API ==========
+
+export const getAllComplaints = (params = {}) => {
+  const token = localStorage.getItem('token');
+  return axios.get(`${API_URL}/admin/complaints`, {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const getComplaintStats = () => {
+  const token = localStorage.getItem('token');
+  return axios.get(`${API_URL}/admin/complaints/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const getComplaintDetail = (id) => {
+  const token = localStorage.getItem('token');
+  return axios.get(`${API_URL}/admin/complaints/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const updateComplaintStatus = (id, status) => {
+  const token = localStorage.getItem('token');
+  return axios.put(`${API_URL}/admin/complaints/${id}/status`, { status }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const respondComplaint = (id, response) => {
+  const token = localStorage.getItem('token');
+  return axios.post(`${API_URL}/admin/complaints/${id}/respond`, { admin_response: response }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const deleteComplaint = (id) => {
+  const token = localStorage.getItem('token');
+  return axios.delete(`${API_URL}/admin/complaints/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
 
 export default api;

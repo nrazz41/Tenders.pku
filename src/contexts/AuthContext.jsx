@@ -1,6 +1,4 @@
-// src/contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { loginAPI, logoutAPI, getMe } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -17,65 +15,32 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            fetchUser();
-        } else {
-            setLoading(false);
+        // Baca user dari localStorage saat aplikasi load
+        const storedUser = localStorage.getItem('user');
+        console.log('AuthContext - membaca localStorage:', storedUser);
+        
+        if (storedUser) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                setUser(parsedUser);
+                console.log('AuthContext - user berhasil di-load:', parsedUser);
+            } catch (error) {
+                console.error('AuthContext - gagal parse user:', error);
+            }
         }
+        setLoading(false);
     }, []);
 
-    const fetchUser = async () => {
-        try {
-            const response = await getMe();
-            if (response.data.success) {
-                setUser(response.data.data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch user:', error);
-            localStorage.removeItem('token');
-        } finally {
-            setLoading(false);
-        }
+    // Fungsi login untuk sync dengan localStorage jika diperlukan
+    const login = (userData) => {
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
     };
 
-    const login = async (username, password) => {
-        try {
-            const response = await loginAPI({ username, password });
-            console.log("Login response:", response.data);
-            
-            if (response.data.success) {
-                localStorage.setItem('token', response.data.token);
-                setUser(response.data.data);
-                return { 
-                    success: true, 
-                    data: response.data.data,
-                    role: response.data.data.role 
-                };
-            } else {
-                return { success: false, error: response.data.error };
-            }
-        } catch (error) {
-            console.error("Login error:", error);
-            return { 
-                success: false, 
-                error: error.response?.data?.error || 'Login gagal' 
-            };
-        }
-    };
-
-    const logout = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (token) {
-                await logoutAPI();
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            localStorage.removeItem('token');
-            setUser(null);
-        }
+    const logout = () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
     };
 
     return (
