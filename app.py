@@ -21,28 +21,34 @@ def predict():
 
         # LOGIKA YANG DISINKRONKAN DENGAN TABEL MANAGEMENT:
         # 1. Platinum: Transaksi di atas 1 Juta (Asumsi > 25 porsi)
-        if transaksi >= 1000000:
+# LOGIKA YANG DISINKRONKAN DENGAN GAMBAR MANAGEMENT KAMU:
+        # 1. Platinum: > 25 porsi (Asumsi transaksi tinggi, misal > 800rb)
+        if transaksi >= 875000: 
             label_nama = "Platinum"
+            status_loyal = "SANGAT LOYAL"
         
-        # 2. Gold: Transaksi di atas 420rb (Sesuai kriteria 12 porsi kamu)
+        # 2. Gold: 12 porsi (± Rp 420.000)
         elif transaksi >= 420000:
             label_nama = "Gold"
+            status_loyal = "SANGAT LOYAL"
             
-        # 3. Silver: Transaksi di atas 175rb (Sesuai kriteria 5 porsi kamu)
+        # 3. Silver: 5 porsi (± Rp 175.000) -> 350rb masuk sini!
         elif transaksi >= 175000:
             label_nama = "Silver"
+            status_loyal = "LOYAL" # Perubahan di sini: Silver sudah Loyal
             
-        # 4. Sisanya Classic
+        # 4. Classic: 1-4 porsi
         else:
             label_nama = "Classic"
+            status_loyal = "BELUM LOYAL"
 
         return jsonify({
-            "success": True,
-            "label_nama": label_nama
+            "success": True, 
+            "label_nama": label_nama,
+            "status_loyal": status_loyal # Kita kirim status loyalnya juga
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
-    
+    app.run()    

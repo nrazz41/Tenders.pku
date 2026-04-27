@@ -20,24 +20,31 @@ export default function LoyaltyPredict() {
     setResult(null);
 
     try {
-      const response = await fetch(
-        " https://a3f3-2001-448a-1090-c050-d4c3-d93e-84b8-f9f4.ngrok-free.app/predict",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            membership_encoded: parseInt(membership),
-            status_encoded: parseInt(status),
-            total_transaksi: parseFloat(transaksi),
-            lama_bergabung: parseInt(lamaBergabung),
-          }),
-        }
-      );
+const response = await fetch(
+  "https://tenderspku.pythonanywhere.com/predict", 
+  {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json" 
+      // Kamu tidak butuh header 'ngrok-skip-browser-warning' lagi di sini
+    },
+    body: JSON.stringify({
+      membership_encoded: parseInt(membership),
+      status_encoded: parseInt(status),
+      total_transaksi: parseFloat(transaksi),
+      lama_bergabung: parseInt(lamaBergabung),
+    }),
+  }
+);
+
+      if (!response.ok) {
+        throw new Error("Server AI merespon dengan kesalahan.");
+      }
 
       const data = await response.json();
       setResult(data);
     } catch (error) {
-      setResult({ error: "Gagal terhubung ke Server AI Tenders." });
+      setResult({ error: "Gagal terhubung ke Server AI Tenders. Pastikan kawanmu sudah mengaktifkan flask-cors di Python." });
     } finally {
       setLoading(false);
     }
@@ -57,7 +64,7 @@ export default function LoyaltyPredict() {
         </div>
       </div>
 
-      {/* Stat Cards - Konsisten dengan halaman sebelumnya */}
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 bg-red-50 text-[#B82329] rounded-lg"><Target /></div>
@@ -85,7 +92,7 @@ export default function LoyaltyPredict() {
       {/* Main Content Area */}
       <div className="flex flex-col lg:flex-row gap-8">
         
-        {/* Form Prediction - Konsisten dengan Modal/Table Style */}
+        {/* Form Prediction */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 w-full lg:w-1/2">
           <div className="flex items-center gap-2 mb-6 border-b pb-4">
             <BrainCircuit className="text-[#B82329]" />
@@ -174,31 +181,26 @@ export default function LoyaltyPredict() {
                 )}
 
                 {result && result.label_nama && (
-                    <div className="animate-in fade-in zoom-in duration-500">
-                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em] mb-4">Hasil Prediksi Loyalitas</p>
-                        
-                        <div className={`text-6xl font-black uppercase italic tracking-tighter mb-4 ${
-                            result.label_nama === "Gold" || result.label_nama === "Platinum" ? "text-green-600" : "text-orange-500"
-                        }`}>
-                            {result.label_nama}
-                        </div>
-
-                        <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 inline-block w-full max-w-sm">
-                            <h4 className="font-black text-gray-800 uppercase italic mb-2">Analisis Sistem:</h4>
-                            <p className="text-sm font-bold text-gray-600 leading-relaxed">
-                                Berdasarkan data transaksi senilai <span className="text-[#B82329]">Rp {Number(transaksi).toLocaleString()}</span>, 
-                                sistem memprediksi pelanggan ini <span className="underline underline-offset-4 decoration-[#B82329]">
-                                    {result.label_nama === "Gold" || result.label_nama === "Platinum" ? "SANGAT LOYAL" : "BELUM LOYAL"}
-                                </span> terhadap brand Tenders.pku.
-                            </p>
-                        </div>
-                        
-                        <div className="mt-8">
-                             <span className="px-4 py-2 bg-black text-white rounded-full text-[10px] font-black tracking-widest uppercase">
-                                Confidence Level: 98%
-                             </span>
-                        </div>
+                  <div className="animate-in fade-in zoom-in duration-500">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em] mb-4">Hasil Prediksi Loyalitas</p>
+                    
+                    <div className={`text-6xl font-black uppercase italic tracking-tighter mb-4 ${
+                      result.label_nama === "Classic" ? "text-orange-500" : "text-green-600"
+                    }`}>
+                      {result.label_nama}
                     </div>
+
+                    <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 inline-block w-full max-w-sm">
+                      <h4 className="font-black text-gray-800 uppercase italic mb-2">Analisis Sistem:</h4>
+                      <p className="text-sm font-bold text-gray-600 leading-relaxed">
+                        Berdasarkan data transaksi senilai <span className="text-[#B82329]">Rp {Number(transaksi).toLocaleString()}</span>, 
+                        sistem memprediksi pelanggan ini <span className="underline underline-offset-4 decoration-[#B82329]">
+                          {/* PENTING: Jangan tulis manual "BELUM LOYAL", tapi ambil dari result AI */}
+                          {result.status_loyal || (result.label_nama === "Classic" ? "BELUM LOYAL" : "LOYAL")}
+                        </span> terhadap brand Tenders.pku.
+                      </p>
+                    </div>
+                  </div>
                 )}
 
                 {result && result.error && (
