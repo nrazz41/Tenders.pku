@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+// src/assets/Pages/FormPengaduan.jsx
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, Send, User, Mail, MessageSquare, Star, Phone, MapPin } from "lucide-react";
-import axios from "axios";
+import { supabase } from "../../services/supabaseClient";
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 const FormPengaduan = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
-    name: user?.full_name || user?.username || "",
+    name: "",
     email: "",
     phone: "",
     complaint_type: "keluhan",
@@ -30,6 +31,23 @@ const FormPengaduan = () => {
     { value: "laporkan_kualitas_makanan", label: "🍗 Kualitas Makanan" },
   ];
 
+  // Load user dari localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setFormData(prev => ({
+          ...prev,
+          name: parsedUser.full_name || parsedUser.email?.split('@')[0] || "",
+          email: parsedUser.email || "",
+          phone: parsedUser.phone || "",
+        }));
+      } catch(e) {}
+    }
+  }, []);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -45,32 +63,33 @@ const FormPengaduan = () => {
     setSuccess(null);
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `${API_URL}/complaints`,
-        {
-          ...formData,
+      const { data, error: insertError } = await supabase
+        .from('complaints')
+        .insert([{
           user_id: user?.id || null,
-        },
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }
-      );
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          complaint_type: formData.complaint_type,
+          rating: formData.rating,
+          message: formData.message,
+          status: 'pending',
+          created_at: new Date()
+        }])
+        .select();
 
-      if (response.data.success) {
-        setSuccess("✅ Terima kasih! Pengaduan/saran Anda telah kami terima.");
-        setFormData({
-          name: user?.full_name || user?.username || "",
-          email: "",
-          phone: "",
-          complaint_type: "keluhan",
-          message: "",
-          rating: 0,
-        });
-        setTimeout(() => navigate("/"), 3000);
-      } else {
-        setError("Gagal mengirim pengaduan. Silakan coba lagi.");
-      }
+      if (insertError) throw insertError;
+
+      setSuccess("✅ Terima kasih! Pengaduan/saran Anda telah kami terima.");
+      setFormData({
+        name: user?.full_name || user?.email?.split('@')[0] || "",
+        email: user?.email || "",
+        phone: user?.phone || "",
+        complaint_type: "keluhan",
+        message: "",
+        rating: 0,
+      });
+      setTimeout(() => navigate("/"), 3000);
     } catch (err) {
       console.error(err);
       setError("Terjadi kesalahan. Silakan coba lagi nanti.");
@@ -85,7 +104,7 @@ const FormPengaduan = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-            📝 Form <span className="text-orange-600">Pengaduan & Saran</span>
+            📝 Form <span style={{ color: PRIMARY_RED }}>Pengaduan & Saran</span>
           </h1>
           <p className="text-gray-500 mt-2">
             Kami menghargai setiap masukan dari pelanggan Tenders PKU
@@ -94,7 +113,7 @@ const FormPengaduan = () => {
 
         {/* Card Form */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-500 to-red-600 p-4">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 p-4">
             <h2 className="text-white font-bold text-xl flex items-center gap-2">
               <AlertCircle size={24} /> Isi Form Dibawah Ini
             </h2>
@@ -112,7 +131,7 @@ const FormPengaduan = () => {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Masukkan nama Anda"
               />
             </div>
@@ -128,7 +147,7 @@ const FormPengaduan = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="email@example.com"
                 />
               </div>
@@ -141,7 +160,7 @@ const FormPengaduan = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="0812-3456-7890"
                 />
               </div>
@@ -154,7 +173,7 @@ const FormPengaduan = () => {
                 name="complaint_type"
                 value={formData.complaint_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 {complaintTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -173,7 +192,7 @@ const FormPengaduan = () => {
                     key={star}
                     type="button"
                     onClick={() => handleRating(star)}
-                    className={`text-3xl transition-transform hover:scale-110 ${
+                    className={`text-3xl transition-transform hover:scale-110 focus:outline-none ${
                       formData.rating >= star ? "text-yellow-400" : "text-gray-300"
                     }`}
                   >
@@ -194,15 +213,15 @@ const FormPengaduan = () => {
                 onChange={handleChange}
                 required
                 rows="5"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                 placeholder="Ceritakan pengalaman, keluhan, atau saran Anda..."
               />
             </div>
 
             {/* Info */}
-            <div className="bg-orange-50 p-4 rounded-xl text-sm text-gray-600">
+            <div className="p-4 rounded-xl text-sm text-gray-600" style={{ backgroundColor: `${PRIMARY_RED}10` }}>
               <p className="flex items-start gap-2">
-                <MapPin size={16} className="mt-0.5" />
+                <MapPin size={16} className="mt-0.5" style={{ color: PRIMARY_RED }} />
                 <span>Pengaduan Anda akan langsung kami respon dalam 1x24 jam. Terima kasih atas kepercayaan Anda kepada Tenders PKU!</span>
               </p>
             </div>
@@ -223,7 +242,8 @@ const FormPengaduan = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="w-full py-3 text-white font-bold rounded-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+              style={{ background: `linear-gradient(to right, ${PRIMARY_RED}, #8B1A1F)` }}
             >
               {isSubmitting ? (
                 "Mengirim..."
@@ -238,7 +258,7 @@ const FormPengaduan = () => {
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <Link to="/" className="text-orange-500 hover:underline">
+          <Link to="/" className="hover:underline" style={{ color: PRIMARY_RED }}>
             ← Kembali ke Beranda
           </Link>
         </div>

@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Bell, Package, CheckCircle, Clock, XCircle, ArrowLeft, Trash2, Eye } from "lucide-react";
-import axios from "axios";
+import { supabase } from "../../services/supabaseClient";
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 const NotificationPage = () => {
   const [notifications, setNotifications] = useState([]);
@@ -16,23 +16,29 @@ const NotificationPage = () => {
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-    fetchNotifications();
-    // Polling setiap 5 detik untuk notifikasi baru
-    const interval = setInterval(fetchNotifications, 5000);
-    return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Polling setiap 5 detik untuk notifikasi baru
+      const interval = setInterval(fetchNotifications, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
   const fetchNotifications = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!user) return;
 
     try {
-      const response = await axios.get(`${API_URL}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setNotifications(response.data.data);
-      }
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setNotifications(data || []);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     } finally {
@@ -41,11 +47,14 @@ const NotificationPage = () => {
   };
 
   const markAsRead = async (id) => {
-    const token = localStorage.getItem("token");
     try {
-      await axios.put(`${API_URL}/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, updated_at: new Date() })
+        .eq('id', id);
+
+      if (error) throw error;
+      
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
@@ -55,11 +64,15 @@ const NotificationPage = () => {
   };
 
   const markAllAsRead = async () => {
-    const token = localStorage.getItem("token");
     try {
-      await axios.put(`${API_URL}/notifications/read-all`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, updated_at: new Date() })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      
       setNotifications(prev =>
         prev.map(n => ({ ...n, is_read: true }))
       );
@@ -69,13 +82,17 @@ const NotificationPage = () => {
   };
 
   const getIcon = (title) => {
-    if (title.includes("Selesai")) return <CheckCircle className="text-green-500" size={24} />;
-    if (title.includes("Diproses")) return <Clock className="text-blue-500" size={24} />;
-    if (title.includes("Dibatalkan")) return <XCircle className="text-red-500" size={24} />;
-    return <Package className="text-orange-500" size={24} />;
+    if (title?.includes("Selesai") || title?.includes("completed")) 
+      return <CheckCircle className="text-green-500" size={24} />;
+    if (title?.includes("Diproses") || title?.includes("processing")) 
+      return <Clock className="text-blue-500" size={24} />;
+    if (title?.includes("Dibatalkan") || title?.includes("cancelled")) 
+      return <XCircle className="text-red-500" size={24} />;
+    return <Package style={{ color: PRIMARY_RED }} size={24} />;
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "Baru saja";
     const date = new Date(dateString);
     const now = new Date();
     const diff = now - date;
@@ -94,7 +111,7 @@ const NotificationPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderBottomColor: PRIMARY_RED }}></div>
       </div>
     );
   }
@@ -104,16 +121,16 @@ const NotificationPage = () => {
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link to="/" className="text-gray-600 hover:text-orange-500">
+          <Link to="/" className="text-gray-600 transition" style={{ hover: { color: PRIMARY_RED } }}>
             <ArrowLeft size={24} />
           </Link>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-800">Notifikasi</h1>
             {unreadCount > 0 && (
-              <p className="text-sm text-orange-500">{unreadCount} belum dibaca</p>
+              <p className="text-sm" style={{ color: PRIMARY_RED }}>{unreadCount} belum dibaca</p>
             )}
           </div>
-          <Bell className="text-orange-500" size={24} />
+          <Bell style={{ color: PRIMARY_RED }} size={24} />
         </div>
       </header>
 
@@ -129,7 +146,8 @@ const NotificationPage = () => {
               <div className="text-right mb-4">
                 <button
                   onClick={markAllAsRead}
-                  className="text-sm text-orange-500 hover:underline"
+                  className="text-sm hover:underline"
+                  style={{ color: PRIMARY_RED }}
                 >
                   Tandai semua sudah dibaca
                 </button>
@@ -142,24 +160,28 @@ const NotificationPage = () => {
                   key={notif.id}
                   onClick={() => !notif.is_read && markAsRead(notif.id)}
                   className={`bg-white rounded-xl p-4 shadow-sm transition-all cursor-pointer ${
-                    !notif.is_read ? "border-l-4 border-orange-500" : "opacity-80"
+                    !notif.is_read ? "border-l-4" : "opacity-80"
                   }`}
+                  style={!notif.is_read ? { borderLeftColor: PRIMARY_RED } : {}}
                 >
                   <div className="flex gap-3">
                     {getIcon(notif.title)}
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-800">{notif.title}</h3>
                       <p className="text-sm text-gray-600 mt-1">{notif.message}</p>
-                      <Link
-                        to={`/order/${notif.order_id}`}
-                        className="text-xs text-orange-500 mt-2 inline-block hover:underline flex items-center gap-1"
-                      >
-                        <Eye size={12} /> Lihat detail pesanan
-                      </Link>
+                      {notif.order_id && (
+                        <Link
+                          to={`/order/${notif.order_id}`}
+                          className="text-xs mt-2 inline-block hover:underline flex items-center gap-1"
+                          style={{ color: PRIMARY_RED }}
+                        >
+                          <Eye size={12} /> Lihat detail pesanan
+                        </Link>
+                      )}
                       <p className="text-xs text-gray-400 mt-2">{formatDate(notif.created_at)}</p>
                     </div>
                     {!notif.is_read && (
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIMARY_RED }}></div>
                     )}
                   </div>
                 </div>

@@ -9,16 +9,15 @@ import {
   UserPlus, RefreshCcw, LayoutDashboard, TrendingUp, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement, LineElement,
   PointElement, Title, Tooltip, Legend, ArcElement
 );
 
-const API_URL = "http://127.0.0.1:8000/api";
-const primaryRed = '#B82329';
-const darkerRed = '#8e1b20';
+const PRIMARY_RED = '#B82329';
+const DARKER_RED = '#8e1b20';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -32,51 +31,70 @@ const Dashboard = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      // Fetch orders from Supabase
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const [orderRes, userRes, productRes] = await Promise.all([
-        axios.get(`${API_URL}/orders`, config),
-        axios.get(`${API_URL}/users`, config),
-        axios.get(`${API_URL}/products`, config)
+      if (ordersError) throw ordersError;
+
+      // Fetch users from Supabase
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*');
+
+      if (usersError) throw usersError;
+
+      // Fetch products from Supabase
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('*');
+
+      if (productsError) throw productsError;
+
+      const today = new Date().toISOString().split('T')[0];
+      const thisMonth = new Date().getMonth();
+      
+      const incomeToday = (orders || [])
+        .filter(o => o.created_at?.split('T')[0] === today && o.status === 'completed')
+        .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+      const incomeMonth = (orders || [])
+        .filter(o => {
+          const date = new Date(o.created_at);
+          return date.getMonth() === thisMonth && o.status === 'completed';
+        })
+        .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+      const lowStockCount = (products || []).filter(p => p.stock <= 20 && p.stock > 0).length;
+      const totalCustomers = (users || []).length;
+
+      setStats([
+        { label: "Pendapatan Hari Ini", value: `Rp ${incomeToday.toLocaleString('id-ID')}`, icon: <DollarSign />, path: '/penjualan', color: PRIMARY_RED },
+        { label: "Revenue Bulan Ini", value: `Rp ${incomeMonth.toLocaleString('id-ID')}`, icon: <TrendingUp />, path: '/laporan-penjualan', color: DARKER_RED },
+        { label: "Stok Kritis", value: `${lowStockCount} Produk`, icon: <AlertTriangle />, path: '/product', color: '#DAA520' },
+        { label: "Total Pelanggan", value: `${totalCustomers} Member`, icon: <Users />, path: '/pelanggan', color: '#4A90E2' },
       ]);
 
-      if (orderRes.data.success && userRes.data.success && productRes.data.success) {
-        const orders = orderRes.data.data;
-        const users = userRes.data.data;
-        const products = productRes.data.data;
+      const salesByMonth = Array(12).fill(0);
+      (orders || []).forEach(o => {
+        if (o.status === 'completed') {
+          const month = new Date(o.created_at).getMonth();
+          salesByMonth[month] += Number(o.total_amount || 0);
+        }
+      });
 
-        const today = new Date().toISOString().split('T')[0];
-        const thisMonth = new Date().getMonth();
-        
-        const incomeToday = orders
-          .filter(o => o.created_at.split('T')[0] === today && o.status === 'completed')
-          .reduce((sum, o) => sum + Number(o.total_amount), 0);
+      const memberMap = {};
+      (users || []).forEach(u => { 
+        const membership = u.membership || 'Classic';
+        memberMap[membership] = (memberMap[membership] || 0) + 1; 
+      });
 
-        const incomeMonth = orders
-          .filter(o => new Date(o.created_at).getMonth() === thisMonth && o.status === 'completed')
-          .reduce((sum, o) => sum + Number(o.total_amount), 0);
-
-        const lowStockCount = products.filter(p => p.stock <= 20 && p.stock > 0).length;
-        const totalCustomers = users.length;
-
-        setStats([
-          { label: "Pendapatan Hari Ini", value: `Rp ${incomeToday.toLocaleString('id-ID')}`, icon: <DollarSign />, path: '/penjualan', color: primaryRed },
-          { label: "Revenue Bulan Ini", value: `Rp ${incomeMonth.toLocaleString('id-ID')}`, icon: <TrendingUp />, path: '/laporan-penjualan', color: darkerRed },
-          { label: "Stok Kritis", value: `${lowStockCount} Produk`, icon: <AlertTriangle />, path: '/product', color: '#DAA520' },
-          { label: "Total Pelanggan", value: `${totalCustomers} Member`, icon: <Users />, path: '/pelanggan', color: '#4A90E2' },
-        ]);
-
-        const salesByMonth = Array(12).fill(0);
-        orders.forEach(o => {
-          if (o.status === 'completed') salesByMonth[new Date(o.created_at).getMonth()] += Number(o.total_amount);
-        });
-
-        const memberMap = {};
-        users.forEach(u => { memberMap[u.membership || 'Classic'] = (memberMap[u.membership || 'Classic'] || 0) + 1; });
-
-        setChartData({ monthlySales: salesByMonth, membershipDist: memberMap });
-      }
+      setChartData({ 
+        monthlySales: salesByMonth, 
+        membershipDist: memberMap 
+      });
     } catch (error) {
       console.error("Sinkronisasi gagal:", error);
     } finally {
@@ -84,14 +102,16 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
   const barData = {
     labels: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
     datasets: [{
-      label: "Revenue",
+      label: "Revenue (Ribuan)",
       data: chartData.monthlySales.map(v => v / 1000),
-      backgroundColor: primaryRed,
+      backgroundColor: PRIMARY_RED,
       borderRadius: 5,
     }]
   };
@@ -100,7 +120,7 @@ const Dashboard = () => {
     labels: Object.keys(chartData.membershipDist),
     datasets: [{
       data: Object.values(chartData.membershipDist),
-      backgroundColor: [primaryRed, '#DAA520', '#94a3b8', '#CD7F32'],
+      backgroundColor: [PRIMARY_RED, '#DAA520', '#94a3b8', '#CD7F32'],
       hoverOffset: 15,
       borderWidth: 0,
     }]
@@ -108,7 +128,7 @@ const Dashboard = () => {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F7FE]">
-      <RefreshCcw className="animate-spin text-[#B82329] mb-4" size={48} />
+      <RefreshCcw className="animate-spin mb-4" size={48} style={{ color: PRIMARY_RED }} />
       <p className="font-black uppercase italic tracking-[0.2em] text-gray-400">Tenders Engine Loading...</p>
     </div>
   );
@@ -118,17 +138,20 @@ const Dashboard = () => {
       {/* Header Eksklusif */}
       <div className="flex justify-between items-end mb-10">
         <div>
-          <h1 className="text-4xl font-black text-[#B82329] uppercase italic tracking-tighter flex items-center gap-3">
-            <LayoutDashboard size={36} className="text-[#B82329]" /> Dashboard Pusat
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter flex items-center gap-3" style={{ color: PRIMARY_RED }}>
+            <LayoutDashboard size={36} className="text-red-500" /> Dashboard Pusat
           </h1>
           <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.4em] mt-1 ml-1">Live Statistics Monitoring System</p>
         </div>
-        <button onClick={fetchData} className="bg-white p-3 rounded-2xl shadow-sm hover:rotate-180 transition-all duration-500 text-gray-400 hover:text-[#B82329]">
+        <button 
+          onClick={fetchData} 
+          className="bg-white p-3 rounded-2xl shadow-sm hover:rotate-180 transition-all duration-500 text-gray-400 hover:text-red-500"
+        >
           <RefreshCcw size={22} />
         </button>
       </div>
 
-      {/* Grid Statistik - Gaya Halaman Pelanggan */}
+      {/* Grid Statistik */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         {stats.map((item, idx) => (
           <div 
@@ -141,7 +164,7 @@ const Dashboard = () => {
             </div>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
             <h3 className="text-2xl font-black text-gray-900 mb-4">{item.value}</h3>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-[#B82329] uppercase tracking-tighter">
+            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-tighter" style={{ color: PRIMARY_RED }}>
                 Lihat Detail <ChevronRight size={12} />
             </div>
             <div className="absolute bottom-0 left-0 h-1.5 w-0 group-hover:w-full transition-all duration-500" style={{ backgroundColor: item.color }}></div>
@@ -163,7 +186,17 @@ const Dashboard = () => {
                  responsive: true, 
                  maintainAspectRatio: false,
                  plugins: { legend: { display: false } },
-                 scales: { y: { beginAtZero: true, grid: { display: false }, ticks: { font: { weight: 'bold' } } }, x: { grid: { display: false }, ticks: { font: { weight: 'bold' } } } }
+                 scales: { 
+                   y: { 
+                     beginAtZero: true, 
+                     grid: { display: false }, 
+                     ticks: { font: { weight: 'bold' } } 
+                   }, 
+                   x: { 
+                     grid: { display: false }, 
+                     ticks: { font: { weight: 'bold' } } 
+                   } 
+                 }
                }} 
              />
           </div>
@@ -182,7 +215,9 @@ const Dashboard = () => {
                 }} 
             />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-[#B82329] italic">{Object.values(chartData.membershipDist).reduce((a,b) => a+b, 0)}</span>
+                <span className="text-3xl font-black italic" style={{ color: PRIMARY_RED }}>
+                  {Object.values(chartData.membershipDist).reduce((a,b) => a+b, 0)}
+                </span>
                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total Member</span>
             </div>
           </div>

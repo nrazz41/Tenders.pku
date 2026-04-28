@@ -6,13 +6,12 @@ import {
 import { 
   TrendingUp, Package, RefreshCcw, Download, FileText, Users 
 } from 'lucide-react';
-import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import * as XLSX from 'xlsx';
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = '#B82329';
 
 const SalesReportsPage = () => {
-  const primaryRed = '#B82329';
   const [salesData, setSalesData] = useState([]);
   const [orderRawData, setOrderRawData] = useState([]);
   const [customerRawData, setCustomerRawData] = useState([]);
@@ -24,78 +23,94 @@ const SalesReportsPage = () => {
     topProduct: '-',
   });
 
-  const fetchDataReport = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      };
+const fetchDataReport = useCallback(async () => {
+  setLoading(true);
+  try {
+    // Fetch orders
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      // Tarik data dari API Laravel
-      const [orderRes, customerRes] = await Promise.all([
-        axios.get(`${API_URL}/orders`, config),
-        axios.get(`${API_URL}/users`, config)
-      ]);
+    if (ordersError) throw ordersError;
 
-      if (orderRes.data.success && customerRes.data.success) {
-        const orders = orderRes.data.data;
-        const customers = customerRes.data.data;
-        
-        setOrderRawData(orders);
-        setCustomerRawData(customers);
+    // Fetch order_items dengan products
+    const orderIds = orders?.map(o => o.id) || [];
+    
+    let orderItems = [];
+    if (orderIds.length > 0) {
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*, products(*)')
+        .in('order_id', orderIds);
 
-        const monthlyMap = {};
-        let totalRevenue = 0;
-        
-        // Filter pesanan yang statusnya 'completed'
-        const completedOrders = orders.filter(o => o.status === 'completed');
+      if (itemsError) throw itemsError;
+      orderItems = items || [];
+    }
 
-        completedOrders.forEach(order => {
-          const date = new Date(order.created_at);
-          const monthYear = date.toLocaleString('id-ID', { month: 'short' });
-          
-          if (!monthlyMap[monthYear]) {
-            monthlyMap[monthYear] = { name: monthYear, Penjualan: 0, Transaksi: 0 };
-          }
-          
-          monthlyMap[monthYear].Penjualan += Number(order.total_amount || 0);
-          monthlyMap[monthYear].Transaksi += 1;
-          totalRevenue += Number(order.total_amount || 0);
-        });
+    // Gabungkan data
+    const ordersWithItems = (orders || []).map(order => ({
+      ...order,
+      order_items: orderItems.filter(item => item.order_id === order.id)
+    }));
 
-        // Cari Produk Terlaris
-        const productCount = {};
-        orders.forEach(order => {
-          order.items?.forEach(item => {
-            const pName = item.product?.name || 'Produk';
-            productCount[pName] = (productCount[pName] || 0) + (item.quantity || 0);
-          });
-        });
-        
-        const topProduct = Object.keys(productCount).length > 0 
-          ? Object.keys(productCount).reduce((a, b) => productCount[a] > productCount[b] ? a : b)
-          : '-';
+    // Fetch customers
+    const { data: customers, error: customersError } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-        setSalesData(Object.values(monthlyMap));
-        setReportSummary({
-          totalSales: totalRevenue,
-          totalTransactions: completedOrders.length,
-          totalCustomers: customers.length,
-          topProduct: topProduct,
+    if (customersError) throw customersError;
+
+    setOrderRawData(ordersWithItems);
+    setCustomerRawData(customers || []);
+
+    // Proses data untuk laporan
+    const monthlyMap = {};
+    let totalRevenue = 0;
+    let productCount = {};
+
+    const completedOrders = ordersWithItems.filter(o => o.status === 'completed');
+
+    completedOrders.forEach(order => {
+      const date = new Date(order.created_at);
+      const monthName = date.toLocaleString('id-ID', { month: 'short' });
+      
+      if (!monthlyMap[monthName]) {
+        monthlyMap[monthName] = { name: monthName, Penjualan: 0, Transaksi: 0 };
+      }
+      
+      const orderTotal = Number(order.total_amount || 0);
+      monthlyMap[monthName].Penjualan += orderTotal;
+      monthlyMap[monthName].Transaksi += 1;
+      totalRevenue += orderTotal;
+
+      if (order.order_items) {
+        order.order_items.forEach(item => {
+          const productName = item.products?.name || 'Produk';
+          productCount[productName] = (productCount[productName] || 0) + (item.quantity || 0);
         });
       }
-    } catch (error) {
-      console.error("Gagal sinkronisasi laporan:", error);
-      if (error.response?.status === 401) alert("Sesi habis, silakan login kembali.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
+    
+    const topProduct = Object.keys(productCount).length > 0 
+      ? Object.keys(productCount).reduce((a, b) => productCount[a] > productCount[b] ? a : b)
+      : '-';
 
+    setSalesData(Object.values(monthlyMap));
+    setReportSummary({
+      totalSales: totalRevenue,
+      totalTransactions: completedOrders.length,
+      totalCustomers: customers?.length || 0,
+      topProduct: topProduct,
+    });
+  } catch (error) {
+    console.error("Gagal sinkronisasi laporan:", error);
+    alert("Gagal memuat data laporan: " + error.message);
+  } finally {
+    setLoading(false);
+  }
+}, []);
   useEffect(() => {
     fetchDataReport();
   }, [fetchDataReport]);
@@ -131,8 +146,8 @@ const SalesReportsPage = () => {
 
     // Sheet 3: Data Pelanggan
     const customerWS = XLSX.utils.json_to_sheet(customerRawData.map(c => ({
-      "ID Member": `TDR-${String(c.id).padStart(3, '0')}`,
-      "Nama Lengkap": c.full_name,
+      "ID Member": `TDR-${String(c.id).slice(-4)}`,
+      "Nama Lengkap": c.full_name || c.email,
       "Email": c.email,
       "No. HP": c.phone || '-',
       "Tier": c.membership || 'Classic'
@@ -148,7 +163,7 @@ const SalesReportsPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F7FE]">
-        <RefreshCcw className="animate-spin text-[#B82329] mb-4" size={48} />
+        <RefreshCcw className="animate-spin mb-4" size={48} style={{ color: PRIMARY_RED }} />
         <p className="font-black uppercase italic tracking-widest text-gray-400">Sinkronisasi Data...</p>
       </div>
     );
@@ -159,22 +174,26 @@ const SalesReportsPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#B82329]">Laporan Bisnis</h1>
+          <h1 className="text-3xl font-bold" style={{ color: PRIMARY_RED }}>Laporan Bisnis</h1>
           <div className="flex items-center gap-2 mt-1">
             <div className="w-2 h-2 rounded-full bg-green-500"></div>
             <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em]">Live Analytics Tenders.pku</p>
           </div>
         </div>
         <div className="flex gap-3">
-            <button onClick={fetchDataReport} className="bg-white p-2.5 rounded-lg shadow-sm border border-gray-100 text-gray-500 hover:text-[#B82329] transition-all">
-                <RefreshCcw size={20} />
-            </button>
-            <button 
-                onClick={handleExportExcel}
-                className="bg-[#B82329] text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md"
-            >
-                <Download size={18} /> Ekspor Excel
-            </button>
+          <button 
+            onClick={fetchDataReport} 
+            className="bg-white p-2.5 rounded-lg shadow-sm border border-gray-100 text-gray-500 hover:text-red-500 transition-all"
+          >
+            <RefreshCcw size={20} />
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            className="text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md"
+            style={{ backgroundColor: PRIMARY_RED }}
+          >
+            <Download size={18} /> Ekspor Excel
+          </button>
         </div>
       </div>
 
@@ -190,7 +209,7 @@ const SalesReportsPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="flex items-center gap-2 mb-6 border-b pb-4">
-            <TrendingUp className="text-[#B82329]" size={20} />
+            <TrendingUp size={20} style={{ color: PRIMARY_RED }} />
             <h2 className="text-lg font-black uppercase italic tracking-tighter">Tren Penjualan</h2>
           </div>
           <div className="h-[300px]">
@@ -200,7 +219,7 @@ const SalesReportsPage = () => {
                 <XAxis dataKey="name" tick={{fill: '#9ca3af', fontSize: 12}} axisLine={false} />
                 <YAxis tick={{fill: '#9ca3af', fontSize: 12}} axisLine={false} tickFormatter={(v) => `Rp${v/1000}k`} />
                 <Tooltip />
-                <Line type="monotone" dataKey="Penjualan" stroke={primaryRed} strokeWidth={4} dot={{ r: 6, fill: primaryRed }} />
+                <Line type="monotone" dataKey="Penjualan" stroke={PRIMARY_RED} strokeWidth={4} dot={{ r: 6, fill: PRIMARY_RED }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -208,7 +227,7 @@ const SalesReportsPage = () => {
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="flex items-center gap-2 mb-6 border-b pb-4">
-            <Package className="text-[#B82329]" size={20} />
+            <Package size={20} style={{ color: PRIMARY_RED }} />
             <h2 className="text-lg font-black uppercase italic tracking-tighter">Volume Transaksi</h2>
           </div>
           <div className="h-[300px]">
@@ -218,7 +237,7 @@ const SalesReportsPage = () => {
                 <XAxis dataKey="name" tick={{fill: '#9ca3af', fontSize: 12}} axisLine={false} />
                 <YAxis tick={{fill: '#9ca3af', fontSize: 12}} axisLine={false} />
                 <Tooltip />
-                <Bar dataKey="Transaksi" fill={primaryRed} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Transaksi" fill={PRIMARY_RED} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -228,11 +247,13 @@ const SalesReportsPage = () => {
       {/* Footer Note */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 flex justify-between items-center">
         <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-50 text-[#B82329] rounded-xl"><FileText size={24} /></div>
-            <div>
-                <h4 className="font-black text-gray-800 uppercase italic">Sinkronisasi Database</h4>
-                <p className="text-sm text-gray-500 font-medium tracking-tight">Menampilkan integrasi data real-time dari tabel Penjualan dan Pelanggan.</p>
-            </div>
+          <div className="p-3 rounded-xl" style={{ backgroundColor: `${PRIMARY_RED}20`, color: PRIMARY_RED }}>
+            <FileText size={24} />
+          </div>
+          <div>
+            <h4 className="font-black text-gray-800 uppercase italic">Sinkronisasi Database</h4>
+            <p className="text-sm text-gray-500 font-medium tracking-tight">Menampilkan integrasi data real-time dari tabel Penjualan dan Pelanggan.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -240,7 +261,7 @@ const SalesReportsPage = () => {
 };
 
 const StatCard = ({ title, value, isRed }) => (
-  <div className={`${isRed ? 'bg-[#B82329] text-white' : 'bg-white text-gray-800 border border-gray-100'} p-6 rounded-xl shadow-sm transition-transform hover:scale-[1.02]`}>
+  <div className={`${isRed ? 'text-white' : 'bg-white text-gray-800 border border-gray-100'} p-6 rounded-xl shadow-sm transition-transform hover:scale-[1.02]`} style={isRed ? { backgroundColor: PRIMARY_RED } : {}}>
     <p className={`${isRed ? 'text-red-100' : 'text-gray-400'} text-[10px] font-black uppercase tracking-widest`}>{title}</p>
     <h3 className="text-2xl font-bold mt-1 truncate">{value}</h3>
   </div>

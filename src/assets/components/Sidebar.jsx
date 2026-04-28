@@ -31,12 +31,12 @@ const menuItems = [
   { name: "Paket Hemat", icon: <SquareActivityIcon />, path: "/paket-hemat" },
   { name: "Complaints", icon: <MessageSquare />, path: "/complaints" },
   
-  {
+  // {
     
-    name: "Prediksi Loyalitas",
-    icon: <ClipboardList />,
-    path: "/loyalty-predict",
-  },
+  //   name: "Prediksi Loyalitas",
+  //   icon: <ClipboardList />,
+  //   path: "/loyalty-predict",
+  // },
 ];
 
 const accountItems = [{ name: "Logout", icon: <LogOut />, path: "/logout" }];

@@ -6,33 +6,19 @@ import {
   ShoppingCart,
   User,
   Bell,
-  Percent,
-   FileText,
+  FileText,
   Trash2,
-  ChevronDown,
   Plus,
   Minus,
-  Info,
-  ChevronRight,
+  ArrowLeft,
   LogOut,
-  Clock,
-  MapPin,
-  Phone,
-  Instagram,
-  Facebook,
-  Twitter,
   Menu,
   X,
   Flame,
-  Package,
-  Truck,
-  ArrowLeft,
-  CreditCard,
-  ShieldCheck,
 } from "lucide-react";
-import axios from "axios";
+import { supabase } from "../../services/supabaseClient";
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -54,10 +40,14 @@ const CartPage = () => {
     }
   }, []);
 
-  // Fetch cart dari database
+  // Fetch cart dari Supabase
   useEffect(() => {
-    fetchCart();
-  }, []);
+    if (user) {
+      fetchCart();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   // Hitung total setiap kali cartItems atau selectedItems berubah
   useEffect(() => {
@@ -66,28 +56,32 @@ const CartPage = () => {
 
   const fetchCart = async () => {
     setLoading(true);
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get(`${API_URL}/cart`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Fetch cart items with product details
+      const { data, error } = await supabase
+        .from('carts')
+        .select(`
+          *,
+          products (*)
+        `)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
       
-      if (response.data.success) {
-        const items = response.data.data.items || [];
-        setCartItems(items);
-        
-        // Initialize selected items
-        const initialSelected = {};
-        items.forEach(item => {
-          initialSelected[item.id] = true;
-        });
-        setSelectedItems(initialSelected);
-      }
+      const items = data || [];
+      setCartItems(items);
+      
+      // Initialize selected items
+      const initialSelected = {};
+      items.forEach(item => {
+        initialSelected[item.id] = true;
+      });
+      setSelectedItems(initialSelected);
     } catch (error) {
       console.error("Failed to fetch cart:", error);
     } finally {
@@ -101,7 +95,7 @@ const CartPage = () => {
     
     cartItems.forEach(item => {
       if (selectedItems[item.id]) {
-        total += item.product.price * item.quantity;
+        total += (item.products?.price || 0) * item.quantity;
         selected += item.quantity;
       }
     });
@@ -110,19 +104,17 @@ const CartPage = () => {
     setTotalSelected(selected);
   };
 
-  const updateQuantity = async (cartId, productId, currentQty, delta) => {
+  const updateQuantity = async (cartId, currentQty, delta) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
     
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
     try {
-      await axios.put(`${API_URL}/cart/${cartId}`, {
-        quantity: newQty
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('carts')
+        .update({ quantity: newQty })
+        .eq('id', cartId);
+
+      if (error) throw error;
       
       // Update local state
       setCartItems(prev => prev.map(item => 
@@ -135,15 +127,15 @@ const CartPage = () => {
   };
 
   const removeItem = async (cartId) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
     if (!window.confirm("Hapus item dari keranjang?")) return;
     
     try {
-      await axios.delete(`${API_URL}/cart/${cartId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('carts')
+        .delete()
+        .eq('id', cartId);
+
+      if (error) throw error;
       
       setCartItems(prev => prev.filter(item => item.id !== cartId));
       setSelectedItems(prev => {
@@ -182,14 +174,12 @@ const CartPage = () => {
     
     if (!window.confirm(`Hapus ${selectedCartIds.length} item dari keranjang?`)) return;
     
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
     try {
       for (const cartId of selectedCartIds) {
-        await axios.delete(`${API_URL}/cart/${cartId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await supabase
+          .from('carts')
+          .delete()
+          .eq('id', cartId);
       }
       
       setCartItems(prev => prev.filter(item => !selectedItems[item.id]));
@@ -208,7 +198,8 @@ const CartPage = () => {
     navigate("/checkout");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUser(null);
@@ -225,7 +216,7 @@ const CartPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4" style={{ borderBottomColor: PRIMARY_RED }}></div>
           <p className="text-gray-600">Memuat keranjang...</p>
         </div>
       </div>
@@ -239,9 +230,14 @@ const CartPage = () => {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="/images/Logo.png" alt="Tenders PKU" className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover" />
+              <img 
+                src="/images/Logo.png" 
+                alt="Tenders PKU" 
+                className="w-12 h-12 rounded-full border-2 object-cover" 
+                style={{ borderColor: PRIMARY_RED }} 
+              />
               <div>
-                <span className="font-bold text-xl text-orange-600">TENDERS</span>
+                <span className="font-bold text-xl" style={{ color: PRIMARY_RED }}>TENDERS</span>
                 <span className="font-bold text-xl text-gray-800"> PKU</span>
                 <p className="text-xs text-gray-500 -mt-1">First Street Nashville Hot Chicken</p>
               </div>
@@ -253,30 +249,30 @@ const CartPage = () => {
             </div>
 
             <div className="flex items-center space-x-2">
-              <Link to="/cart" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+              <Link to="/cart" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
                 <ShoppingCart size={20} />
               </Link>
 
-              <Link to="/riwayat-pesanan" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+              <Link to="/riwayat-pesanan" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
                 <FileText size={20} />
               </Link>
 
-              <Link to="/notifications" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600">
+              <Link to="/notifications" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
                 <Bell size={20} />
               </Link>
 
               {user ? (
                 <div className="flex items-center space-x-2 ml-2">
-                  <Link to="/profile" className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full">
+                  <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-white rounded-full" style={{ backgroundColor: PRIMARY_RED }}>
                     <User size={16} />
-                    <span>{user.full_name?.split(" ")[0] || user.username}</span>
+                    <span>{user.full_name?.split(" ")[0] || user.email?.split("@")[0]}</span>
                   </Link>
                   <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-gray-100 text-red-500">
                     <LogOut size={18} />
                   </button>
                 </div>
               ) : (
-                <Link to="/login" className="ml-2 px-4 py-2 bg-orange-500 text-white rounded-full flex items-center gap-2">
+                <Link to="/login" className="ml-2 px-4 py-2 text-white rounded-full flex items-center gap-2" style={{ backgroundColor: PRIMARY_RED }}>
                   <User size={16} /> Login
                 </Link>
               )}
@@ -304,7 +300,7 @@ const CartPage = () => {
       {/* MAIN CONTENT */}
       <div className="max-w-6xl mx-auto w-full px-4 py-6">
         <div className="flex items-center gap-4 mb-6">
-          <Link to="/" className="text-gray-500 hover:text-orange-500">
+          <Link to="/" className="text-gray-500 hover:red-500" style={{ hover: { color: PRIMARY_RED } }}>
             <ArrowLeft size={20} />
           </Link>
           <h1 className="text-2xl font-bold text-gray-800">Keranjang Belanja</h1>
@@ -312,12 +308,12 @@ const CartPage = () => {
 
         {cartItems.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
-            <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ShoppingCart size={40} className="text-orange-500" />
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${PRIMARY_RED}20` }}>
+              <ShoppingCart size={40} style={{ color: PRIMARY_RED }} />
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Keranjang Kosong</h2>
             <p className="text-gray-500 mb-6">Belum ada produk di keranjang Anda</p>
-            <Link to="/" className="px-6 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
+            <Link to="/" className="px-6 py-3 text-white rounded-xl transition" style={{ backgroundColor: PRIMARY_RED }}>
               Mulai Belanja
             </Link>
           </div>
@@ -329,7 +325,8 @@ const CartPage = () => {
                 <div className="col-span-1">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                    className="w-4 h-4 rounded border-gray-300 focus:ring-red-500"
+                    style={{ accentColor: PRIMARY_RED }}
                     checked={cartItems.length > 0 && cartItems.every(item => selectedItems[item.id])}
                     onChange={toggleSelectAll}
                   />
@@ -343,11 +340,12 @@ const CartPage = () => {
 
               {/* CART ITEMS */}
               {cartItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-orange-50 transition">
+                <div key={item.id} className="grid grid-cols-12 gap-4 p-4 border-b transition" style={{ hover: { backgroundColor: `${PRIMARY_RED}10` } }}>
                   <div className="col-span-1">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                      className="w-4 h-4 rounded border-gray-300 focus:ring-red-500"
+                      style={{ accentColor: PRIMARY_RED }}
                       checked={selectedItems[item.id] || false}
                       onChange={() => toggleSelectItem(item.id)}
                     />
@@ -355,16 +353,16 @@ const CartPage = () => {
                   
                   <div className="col-span-5 md:col-span-6 flex gap-3">
                     <img
-                      src={item.product.image_url || "/images/default-product.png"}
-                      alt={item.product.name}
+                      src={item.products?.image_url || "/images/default-product.png"}
+                      alt={item.products?.name}
                       className="w-16 h-16 rounded-lg object-cover bg-gray-100"
                       onError={(e) => { e.target.src = "/images/default-product.png"; }}
                     />
                     <div>
-                      <h3 className="font-semibold text-gray-800">{item.product.name}</h3>
-                      <p className="text-xs text-gray-500">{item.product.category}</p>
-                      {item.product.is_popular && (
-                        <span className="inline-flex items-center gap-1 text-xs text-orange-500 mt-1">
+                      <h3 className="font-semibold text-gray-800">{item.products?.name}</h3>
+                      <p className="text-xs text-gray-500">{item.products?.category}</p>
+                      {item.products?.is_popular && (
+                        <span className="inline-flex items-center gap-1 text-xs mt-1" style={{ color: PRIMARY_RED }}>
                           <Flame size={10} /> Best Seller
                         </span>
                       )}
@@ -372,20 +370,20 @@ const CartPage = () => {
                   </div>
                   
                   <div className="col-span-2 text-center hidden md:block">
-                    <span className="font-semibold text-gray-800">{formatCurrency(item.product.price)}</span>
+                    <span className="font-semibold text-gray-800">{formatCurrency(item.products?.price)}</span>
                   </div>
                   
                   <div className="col-span-3 md:col-span-2 flex justify-center">
                     <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                       <button
-                        onClick={() => updateQuantity(item.id, item.product_id, item.quantity, -1)}
+                        onClick={() => updateQuantity(item.id, item.quantity, -1)}
                         className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
                       >
                         <Minus size={14} />
                       </button>
                       <span className="w-10 text-center text-gray-800">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.id, item.product_id, item.quantity, 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity, 1)}
                         className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
                       >
                         <Plus size={14} />
@@ -394,7 +392,9 @@ const CartPage = () => {
                   </div>
                   
                   <div className="col-span-2 text-right hidden md:block">
-                    <span className="font-bold text-orange-600">{formatCurrency(item.product.price * item.quantity)}</span>
+                    <span className="font-bold" style={{ color: PRIMARY_RED }}>
+                      {formatCurrency((item.products?.price || 0) * item.quantity)}
+                    </span>
                   </div>
                   
                   <div className="col-span-2 md:col-span-1 text-right">
@@ -425,12 +425,13 @@ const CartPage = () => {
                   <div className="flex items-center gap-4">
                     <div>
                       <p className="text-gray-500 text-sm">Total ({totalSelected} produk)</p>
-                      <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalPrice)}</p>
+                      <p className="text-2xl font-bold" style={{ color: PRIMARY_RED }}>{formatCurrency(totalPrice)}</p>
                     </div>
                     <button
                       onClick={handleCheckout}
                       disabled={totalSelected === 0}
-                      className="px-8 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-8 py-3 text-white font-semibold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: PRIMARY_RED }}
                     >
                       Checkout
                     </button>

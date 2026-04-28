@@ -1,7 +1,7 @@
 // src/assets/Pages/ProfilePage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import {
   User,
   MapPin,
@@ -29,7 +29,7 @@ import {
   Clock,
 } from 'lucide-react';
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 const formatCurrency = (amount) => {
   const num = Number(amount ?? 0);
@@ -81,32 +81,32 @@ const AddressFormModal = ({ isOpen, onClose, onSave, address }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Label Alamat</label>
               <input type="text" name="label" value={formData.label || ''} onChange={handleChange} 
-                placeholder="Contoh: Rumah, Kantor" className="mt-1 w-full p-2 border rounded-lg focus:ring-orange-500 focus:border-orange-500" required />
+                placeholder="Contoh: Rumah, Kantor" className="mt-1 w-full p-2 border rounded-lg focus:ring-red-500 focus:border-red-500" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Nama Penerima</label>
               <input type="text" name="recipient" value={formData.recipient || ''} onChange={handleChange} 
-                className="mt-1 w-full p-2 border rounded-lg focus:ring-orange-500 focus:border-orange-500" required />
+                className="mt-1 w-full p-2 border rounded-lg focus:ring-red-500 focus:border-red-500" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Nomor Telepon</label>
               <input type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} 
-                className="mt-1 w-full p-2 border rounded-lg focus:ring-orange-500 focus:border-orange-500" required />
+                className="mt-1 w-full p-2 border rounded-lg focus:ring-red-500 focus:border-red-500" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Alamat Lengkap</label>
               <textarea name="fullAddress" value={formData.fullAddress || ''} onChange={handleChange} 
-                rows="3" className="mt-1 w-full p-2 border rounded-lg focus:ring-orange-500 focus:border-orange-500" required />
+                rows="3" className="mt-1 w-full p-2 border rounded-lg focus:ring-red-500 focus:border-red-500" required />
             </div>
             <div className="flex items-center">
               <input type="checkbox" name="isPrimary" id="isPrimary" checked={formData.isPrimary || false} 
-                onChange={handleChange} className="h-4 w-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
+                onChange={handleChange} className="h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-500" />
               <label htmlFor="isPrimary" className="ml-2 block text-sm text-gray-900">Jadikan alamat utama</label>
             </div>
           </div>
           
           <div className="p-5 border-t bg-gray-50 flex justify-end rounded-b-2xl">
-            <button type="submit" className="px-6 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition">
+            <button type="submit" className="px-6 py-2 text-white font-semibold rounded-lg transition" style={{ backgroundColor: PRIMARY_RED }}>
               Simpan
             </button>
           </div>
@@ -143,9 +143,9 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, addressLabel }) => {
 // TOGGLE SWITCH
 // ============================================
 const ToggleSwitch = ({ label, description, icon: Icon, enabled, setEnabled }) => (
-  <div className="flex items-center justify-between p-4 border rounded-xl hover:bg-orange-50 transition">
+  <div className="flex items-center justify-between p-4 border rounded-xl hover:bg-red-50 transition">
     <div className="flex items-center gap-4">
-      <Icon className="text-orange-500" size={24} />
+      <Icon className="text-red-500" size={24} />
       <div>
         <p className="font-semibold text-gray-800">{label}</p>
         <p className="text-sm text-gray-500">{description}</p>
@@ -153,7 +153,7 @@ const ToggleSwitch = ({ label, description, icon: Icon, enabled, setEnabled }) =
     </div>
     <button 
       onClick={() => setEnabled(!enabled)} 
-      className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${enabled ? 'bg-orange-500' : 'bg-gray-300'}`}
+      className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${enabled ? 'bg-red-500' : 'bg-gray-300'}`}
     >
       <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
     </button>
@@ -176,14 +176,11 @@ const ProfileSidebar = ({ user, activeSection, setActiveSection }) => {
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
       <div className="p-6 text-center border-b border-gray-100">
         <div className="relative inline-block">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white text-3xl font-bold">
-            {user?.full_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+          <div className="w-24 h-24 rounded-full bg-gradient-to-r from-red-400 to-red-600 flex items-center justify-center text-white text-3xl font-bold">
+            {user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
           </div>
-          <button className="absolute -bottom-1 -right-1 bg-orange-500 text-white p-1.5 rounded-full border-2 border-white hover:bg-orange-600 transition">
-            <Edit size={12} />
-          </button>
         </div>
-        <h2 className="text-lg font-bold text-gray-800 mt-3">{user?.full_name || user?.username}</h2>
+        <h2 className="text-lg font-bold text-gray-800 mt-3">{user?.full_name || user?.email?.split('@')[0]}</h2>
         <p className="text-xs text-gray-500">{user?.email}</p>
       </div>
       
@@ -200,7 +197,7 @@ const ProfileSidebar = ({ user, activeSection, setActiveSection }) => {
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
               activeSection === item.id 
-                ? 'bg-orange-50 text-orange-600' 
+                ? 'bg-red-50 text-red-600' 
                 : item.isDanger 
                   ? 'text-red-500 hover:bg-red-50' 
                   : 'text-gray-600 hover:bg-gray-50'
@@ -257,6 +254,7 @@ const ProfilePage = () => {
       } catch(e) {}
     }
     loadAddresses();
+    loadSettings();
     setLoading(false);
   }, []);
 
@@ -270,6 +268,13 @@ const ProfilePage = () => {
       ];
       setAddresses(defaultAddresses);
       localStorage.setItem('user_addresses', JSON.stringify(defaultAddresses));
+    }
+  };
+
+  const loadSettings = () => {
+    const savedSettings = localStorage.getItem('user_settings');
+    if (savedSettings) {
+      setSettings(JSON.parse(savedSettings));
     }
   };
 
@@ -308,35 +313,37 @@ const ProfilePage = () => {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert("Silakan login terlebih dahulu");
-      return;
-    }
     
     try {
-      // Update user via API
-      const response = await axios.put(`${API_URL}/user/profile`, profileForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: profileForm.full_name,
+          phone: profileForm.phone,
+          address: profileForm.address,
+          updated_at: new Date()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
       
-      if (response.data.success) {
-        // Update localStorage
-        const updatedUser = { ...user, ...profileForm };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        alert("Profil berhasil diperbarui!");
-      }
+      // Update localStorage
+      const updatedUser = { ...user, ...profileForm };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      alert("Profil berhasil diperbarui!");
     } catch (error) {
       console.error("Failed to update profile:", error);
       alert("Gagal memperbarui profil");
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('user_addresses');
+    localStorage.removeItem('user_settings');
     navigate("/login");
   };
 
@@ -345,14 +352,10 @@ const ProfilePage = () => {
     alert("Pengaturan berhasil disimpan!");
   };
 
-  const handleSaveProfile = () => {
-    alert("Profil berhasil diperbarui!");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderBottomColor: PRIMARY_RED }}></div>
       </div>
     );
   }
@@ -378,9 +381,9 @@ const ProfilePage = () => {
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <Link to="/" className="flex items-center space-x-2">
-                <img src="/images/Logo.png" alt="Tenders PKU" className="w-10 h-10 rounded-full border-2 border-orange-500" />
+                <img src="/images/Logo.png" alt="Tenders PKU" className="w-10 h-10 rounded-full border-2 object-cover" style={{ borderColor: PRIMARY_RED }} />
                 <div>
-                  <span className="font-bold text-xl text-orange-600">TENDERS</span>
+                  <span className="font-bold text-xl" style={{ color: PRIMARY_RED }}>TENDERS</span>
                   <span className="font-bold text-xl text-gray-800"> PKU</span>
                 </div>
               </Link>
@@ -416,7 +419,7 @@ const ProfilePage = () => {
                           type="text"
                           value={profileForm.full_name}
                           onChange={(e) => setProfileForm({...profileForm, full_name: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400"
                         />
                       </div>
                       <div>
@@ -434,14 +437,14 @@ const ProfilePage = () => {
                           type="tel"
                           value={profileForm.phone}
                           onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400"
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
                         <input
                           type="text"
-                          value={user?.username || ''}
+                          value={user?.email?.split('@')[0] || ''}
                           className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500"
                           disabled
                         />
@@ -454,13 +457,13 @@ const ProfilePage = () => {
                         value={profileForm.address}
                         onChange={(e) => setProfileForm({...profileForm, address: e.target.value})}
                         rows="3"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400"
                         placeholder="Jl. Hangtuah (Depan Plaza Kado), Pekanbaru"
                       />
                     </div>
                     
                     <div className="flex justify-end">
-                      <button type="submit" className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition shadow-md">
+                      <button type="submit" className="px-6 py-3 text-white font-semibold rounded-xl transition shadow-md" style={{ backgroundColor: PRIMARY_RED }}>
                         Simpan Perubahan
                       </button>
                     </div>
@@ -477,7 +480,7 @@ const ProfilePage = () => {
                     </div>
                     <button 
                       onClick={() => handleOpenAddressModal()}
-                      className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition"
+                      className="flex items-center gap-2 px-4 py-2 text-white font-semibold rounded-xl transition" style={{ backgroundColor: PRIMARY_RED }}
                     >
                       <PlusCircle size={18} /> Tambah Alamat
                     </button>
@@ -491,7 +494,7 @@ const ProfilePage = () => {
                       </div>
                     ) : (
                       addresses.map(addr => (
-                        <div key={addr.id} className={`p-5 border-2 rounded-xl transition-all ${addr.isPrimary ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}`}>
+                        <div key={addr.id} className={`p-5 border-2 rounded-xl transition-all ${addr.isPrimary ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                               <h4 className="font-bold text-gray-800">{addr.label}</h4>
@@ -514,7 +517,7 @@ const ProfilePage = () => {
                           </div>
                           {!addr.isPrimary && (
                             <div className="mt-3 pt-3 border-t">
-                              <button onClick={() => handleSetPrimary(addr.id)} className="text-sm font-semibold text-orange-500 hover:underline">
+                              <button onClick={() => handleSetPrimary(addr.id)} className="text-sm font-semibold hover:underline" style={{ color: PRIMARY_RED }}>
                                 Jadikan Alamat Utama
                               </button>
                             </div>
@@ -556,7 +559,7 @@ const ProfilePage = () => {
                   </div>
                   
                   <div className="mt-8 flex justify-end">
-                    <button onClick={handleSaveSettings} className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition">
+                    <button onClick={handleSaveSettings} className="px-6 py-3 text-white font-semibold rounded-xl transition" style={{ backgroundColor: PRIMARY_RED }}>
                       Simpan Pengaturan
                     </button>
                   </div>

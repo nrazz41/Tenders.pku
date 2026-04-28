@@ -27,13 +27,11 @@ import {
   Phone as PhoneIcon,
   Gift,
   Zap,
-  TrendingUp,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { getHomeData, getProducts, getCombos } from "../../services/api";
+import { supabase } from "../../services/supabaseClient";
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 // ============================================
 // COMPONENT: Product Card
@@ -54,7 +52,7 @@ const ProductCard = ({ product, onAddToCart }) => {
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl border border-orange-100 flex flex-col h-full relative group"
+      className="bg-white rounded-2xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl border border-red-100 flex flex-col h-full relative group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -69,7 +67,7 @@ const ProductCard = ({ product, onAddToCart }) => {
         </div>
       )}
 
-      <div className="relative overflow-hidden bg-orange-50 h-48">
+      <div className="relative overflow-hidden bg-red-50 h-48">
         <img
           src={product.image_url || "/images/default-product.png"}
           alt={product.name}
@@ -108,26 +106,24 @@ const ProductCard = ({ product, onAddToCart }) => {
         </h3>
 
         <p className="text-gray-500 text-xs mb-3 line-clamp-2">
-          {product.description ||
-            "Chicken tender crispy dengan bumbu Nashville hot"}
+          {product.description || "Chicken tender crispy dengan bumbu Nashville hot"}
         </p>
 
         <div className="flex items-center justify-between mt-auto">
           <div>
-            <span className="text-orange-600 font-bold text-xl">
+            <span className="font-bold text-xl" style={{ color: PRIMARY_RED }}>
               Rp {parseFloat(product.price).toLocaleString("id-ID")}
             </span>
-            {product.original_price &&
-              product.original_price > product.price && (
-                <span className="text-gray-400 text-xs line-through ml-2">
-                  Rp{" "}
-                  {parseFloat(product.original_price).toLocaleString("id-ID")}
-                </span>
-              )}
+            {product.original_price && product.original_price > product.price && (
+              <span className="text-gray-400 text-xs line-through ml-2">
+                Rp {parseFloat(product.original_price).toLocaleString("id-ID")}
+              </span>
+            )}
           </div>
           <button
             onClick={() => onAddToCart && onAddToCart(product)}
-            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 shadow-md"
+            className="text-white p-2 rounded-full transition-all duration-300 hover:scale-110 shadow-md"
+            style={{ backgroundColor: PRIMARY_RED }}
           >
             <Plus size={18} />
           </button>
@@ -138,26 +134,36 @@ const ProductCard = ({ product, onAddToCart }) => {
 };
 
 // ============================================
-// COMPONENT: Combo Card (Paket Hemat)
+// COMPONENT: Combo Card
 // ============================================
 const ComboCard = ({ combo, onOrderNow }) => {
   const [isHovered, setIsHovered] = useState(false);
 
+  const getItemsList = () => {
+    if (!combo.items) return [];
+    try {
+      const items = typeof combo.items === 'string' ? JSON.parse(combo.items) : combo.items;
+      return items;
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const itemsList = getItemsList();
+
   return (
     <div
-      className="bg-gradient-to-br from-orange-50 to-white rounded-2xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl border border-orange-200 flex flex-col h-full relative group"
+      className="bg-gradient-to-br from-red-50 to-white rounded-2xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl border border-red-200 flex flex-col h-full relative group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Badge Diskon */}
       {combo.discount > 0 && (
         <div className="absolute top-3 right-3 z-10 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
           -{combo.discount}% OFF
         </div>
       )}
 
-      {/* Image */}
-      <div className="relative overflow-hidden bg-orange-100 h-52">
+      <div className="relative overflow-hidden bg-red-100 h-52">
         <img
           src={combo.image_url || "/images/combo-default.png"}
           alt={combo.name}
@@ -166,24 +172,26 @@ const ComboCard = ({ combo, onOrderNow }) => {
             e.target.src = "/images/combo-default.png";
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       </div>
 
-      {/* Content */}
-      <div className="p-5 flex flex-col flex-grow">
-        <div className="flex items-center gap-2 mb-2">
-          <Gift size={18} className="text-orange-500" />
-          <h3 className="font-bold text-xl text-gray-800 line-clamp-1">
-            {combo.name}
-          </h3>
+      <div className="p-5 flex flex-col flex-grow items-center text-center">
+        <div className="flex items-center gap-2 mb-2 justify-center">
+          <Gift size={18} className="text-red-500" />
+          <h3 className="font-bold text-xl text-gray-800">{combo.name}</h3>
         </div>
 
-        {/* <p className="text-gray-500 text-sm mb-3 line-clamp-2">
-          {combo.items}
-        </p> */}
+        {itemsList.length > 0 && (
+          <div className="mb-3 space-y-1">
+            {itemsList.map((item, idx) => (
+              <p key={idx} className="text-gray-600 text-sm font-medium">
+                {item.item} {item.quantity && `(${item.quantity}pcs)`}
+              </p>
+            ))}
+          </div>
+        )}
 
-        <div className="flex items-baseline gap-2 mt-auto">
-          <span className="text-orange-600 font-bold text-2xl">
+        <div className="flex items-baseline gap-2 justify-center mt-auto">
+          <span className="font-bold text-2xl" style={{ color: PRIMARY_RED }}>
             Rp {parseFloat(combo.price).toLocaleString("id-ID")}
           </span>
           {combo.original_price && combo.original_price > combo.price && (
@@ -195,38 +203,12 @@ const ComboCard = ({ combo, onOrderNow }) => {
 
         <button
           onClick={() => onOrderNow && onOrderNow(combo)}
-          className="w-full mt-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-red-600 transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+          className="w-full mt-4 py-3 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+          style={{ background: `linear-gradient(to right, ${PRIMARY_RED}, #8B1A1F)` }}
         >
           <Zap size={18} /> Pesan Sekarang
         </button>
       </div>
-    </div>
-  );
-};
-
-// ============================================
-// COMPONENT: Testimonial Card
-// ============================================
-const TestimonialCard = ({ testimonial }) => {
-  return (
-    <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
-          <User size={24} className="text-orange-500" />
-        </div>
-        <div>
-          <h4 className="font-bold text-gray-800">{testimonial.name}</h4>
-          <div className="flex text-yellow-400">
-            {[...Array(testimonial.rating || 5)].map((_, i) => (
-              <Star key={i} size={14} fill="currentColor" />
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="text-gray-600 italic">"{testimonial.comment}"</p>
-      <p className="text-xs text-gray-400 mt-3">
-        {testimonial.date || "Baru saja"}
-      </p>
     </div>
   );
 };
@@ -237,14 +219,9 @@ const TestimonialCard = ({ testimonial }) => {
 const HomePage = () => {
   const navigate = useNavigate();
 
-  // STATE UNTUK USER
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // STATE UNTUK NOTIFIKASI
   const [notificationCount, setNotificationCount] = useState(0);
-
-  // States lainnya
   const [currentPage, setCurrentPage] = useState(1);
   const [currentBannerSlide, setCurrentBannerSlide] = useState(0);
   const [products, setProducts] = useState([]);
@@ -263,39 +240,33 @@ const HomePage = () => {
   const productsSectionRef = useRef(null);
   const productsPerPage = 8;
 
-  // Fungsi fetch notifikasi
+  // Fetch notification count dari Supabase
   const fetchNotificationCount = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) return;
+    
+    const userData = JSON.parse(storedUser);
     try {
-      const response = await axios.get(
-        `${API_URL}/notifications/unread-count`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (response.data.success) {
-        setNotificationCount(response.data.data.count);
-      }
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userData.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setNotificationCount(count || 0);
     } catch (error) {
       console.error("Failed to fetch notification count:", error);
     }
   };
 
-  // BACA USER DARI LOCALSTORAGE DAN GET CART
+  // Get user from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
-
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        if (token) {
-          fetchCartFromAPI(token);
-          fetchNotificationCount();
-        }
       } catch (e) {
         console.error("Failed to parse user:", e);
       }
@@ -303,118 +274,142 @@ const HomePage = () => {
     setLoading(false);
   }, []);
 
-  // Refresh notifikasi setiap 10 detik
-  useEffect(() => {
-    if (user) {
-      fetchNotificationCount();
-      const interval = setInterval(fetchNotificationCount, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  // Fetch ALL data
-  useEffect(() => {
-    fetchAllData();
-    const interval = setInterval(() => {
-      const token = localStorage.getItem("token");
-      if (token) fetchCartFromAPI(token);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch cart dari database
-  const fetchCartFromAPI = async (token) => {
+  // Fetch cart count
+  const fetchCartCount = async () => {
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) return;
+    
+    const userData = JSON.parse(storedUser);
     try {
-      const response = await axios.get(`${API_URL}/cart`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.success) {
-        const totalItems =
-          response.data.data?.items?.reduce(
-            (sum, item) => sum + item.quantity,
-            0,
-          ) || 0;
-        setCartCount(totalItems);
-      }
+      const { data, error } = await supabase
+        .from('carts')
+        .select('quantity')
+        .eq('user_id', userData.id);
+
+      if (error) throw error;
+      const total = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      setCartCount(total);
     } catch (error) {
       console.error("Failed to fetch cart:", error);
     }
   };
 
+  // Fetch all data
   const fetchAllData = async () => {
     try {
-      // Fetch home data (banners, testimonials, store info)
-      const homeRes = await getHomeData();
-      if (homeRes.data.success) {
-        setBanners(homeRes.data.data.banners || []);
-        setTestimonials(homeRes.data.data.testimonials || []);
-        if (homeRes.data.data.store_info) {
-          setStoreInfo(homeRes.data.data.store_info);
-        }
-      }
-
-      // Fetch combos (paket hemat)
-      const combosRes = await getCombos();
-      if (combosRes.data.success) {
-        const activeCombos = combosRes.data.data.filter(
-          (c) => c.is_active !== false,
-        );
-        setCombos(activeCombos);
-        setFeaturedCombos(activeCombos.slice(0, 3));
-      }
-
       // Fetch products
-      await fetchProducts();
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (productsData) setProducts(productsData);
+
+      // Fetch combos
+      const { data: combosData } = await supabase
+        .from('combos')
+        .select('*')
+        .eq('is_active', true);
+      
+      if (combosData) {
+        setCombos(combosData);
+        setFeaturedCombos(combosData.slice(0, 3));
+      }
+
+      // Fetch banners
+      const { data: bannersData } = await supabase
+        .from('banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('order', { ascending: true });
+      
+      if (bannersData) setBanners(bannersData);
+
+      // Fetch testimonials
+      const { data: testimonialsData } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (testimonialsData) setTestimonials(testimonialsData);
+
+      // Fetch store settings
+      const { data: settingsData } = await supabase
+        .from('store_settings')
+        .select('*')
+        .single();
+      
+      if (settingsData) {
+        setStoreInfo(prev => ({ ...prev, ...settingsData }));
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error);
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const response = await getProducts();
-      if (response.data.success) {
-        setProducts(response.data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch products:", error);
-    }
-  };
+  // Initial data fetch
+  useEffect(() => {
+    fetchAllData();
+    fetchCartCount();
+    fetchNotificationCount();
+    
+    // Refresh data setiap 30 detik
+    const interval = setInterval(() => {
+      fetchCartCount();
+      fetchNotificationCount();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh cart & notif when user changes
+  useEffect(() => {
+    fetchCartCount();
+    fetchNotificationCount();
+  }, [user]);
 
   // Add to cart
   const handleAddToCart = async (product) => {
-    if (!user) {
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
       alert("Silakan login terlebih dahulu");
       navigate("/login");
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Session expired. Silakan login ulang.");
-      navigate("/login");
-      return;
-    }
+    const userData = JSON.parse(storedUser);
 
     try {
-      const response = await axios.post(
-        `${API_URL}/cart`,
-        {
-          product_id: product.id,
-          quantity: 1,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      // Check if product already in cart
+      const { data: existing } = await supabase
+        .from('carts')
+        .select('*')
+        .eq('user_id', userData.id)
+        .eq('product_id', product.id)
+        .maybeSingle();
 
-      if (response.data.success) {
-        await fetchCartFromAPI(token);
-        alert(`✅ ${product.name} ditambahkan ke keranjang!`);
+      if (existing) {
+        // Update quantity
+        await supabase
+          .from('carts')
+          .update({ quantity: existing.quantity + 1 })
+          .eq('id', existing.id);
+      } else {
+        // Insert new
+        await supabase
+          .from('carts')
+          .insert([{
+            user_id: userData.id,
+            product_id: product.id,
+            quantity: 1,
+            price: product.price
+          }]);
       }
+
+      await fetchCartCount();
+      alert(`✅ ${product.name} ditambahkan ke keranjang!`);
     } catch (error) {
       console.error("Failed to add to cart:", error);
       alert("Gagal menambahkan ke keranjang");
@@ -427,25 +422,23 @@ const HomePage = () => {
       navigate("/login");
       return;
     }
-    // Redirect ke halaman checkout atau cart dengan data combo
     alert(`🛒 ${combo.name} akan ditambahkan ke keranjang!`);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     setUser(null);
     setCartCount(0);
+    setNotificationCount(0);
     navigate("/");
   };
 
   // Pagination
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = products.slice(
-    indexOfFirstProduct,
-    indexOfLastProduct,
-  );
+  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
   const totalPages = Math.ceil(products.length / productsPerPage);
 
   // Auto slide banner
@@ -461,7 +454,7 @@ const HomePage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4" style={{ borderBottomColor: PRIMARY_RED }}></div>
           <p className="text-gray-600">Memuat...</p>
         </div>
       </div>
@@ -478,16 +471,13 @@ const HomePage = () => {
               <img
                 src="/images/Logo.png"
                 alt="Tenders PKU"
-                className="w-12 h-12 rounded-full border-2 border-orange-500 object-cover"
+                className="w-12 h-12 rounded-full border-2 object-cover"
+                style={{ borderColor: PRIMARY_RED }}
               />
               <div>
-                <span className="font-bold text-xl text-orange-600">
-                  TENDERS
-                </span>
+                <span className="font-bold text-xl" style={{ color: PRIMARY_RED }}>TENDERS</span>
                 <span className="font-bold text-xl text-gray-800"> PKU</span>
-                <p className="text-xs text-gray-500 -mt-1">
-                  First Street Nashville Hot Chicken
-                </p>
+                <p className="text-xs text-gray-500 -mt-1">First Street Nashville Hot Chicken</p>
               </div>
             </Link>
 
@@ -497,17 +487,11 @@ const HomePage = () => {
                 placeholder="Cari menu favoritmu..."
                 className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100"
               />
-              <Search
-                size={18}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
 
             <div className="flex items-center space-x-2">
-              <Link
-                to="/cart"
-                className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600"
-              >
+              <Link to="/cart" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -516,17 +500,11 @@ const HomePage = () => {
                 )}
               </Link>
 
-              <Link
-                to="/riwayat-pesanan"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600"
-              >
+              <Link to="/riwayat-pesanan" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
                 <FileText size={20} />
               </Link>
 
-              <Link
-                to="/notification"
-                className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-orange-600 hover:bg-orange-100 transition"
-              >
+              <Link to="/notification" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-100 transition" style={{ color: PRIMARY_RED }}>
                 <Bell size={20} />
                 {notificationCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md animate-pulse">
@@ -537,35 +515,21 @@ const HomePage = () => {
 
               {user ? (
                 <div className="flex items-center space-x-2 ml-2">
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-full"
-                  >
+                  <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-white rounded-full" style={{ backgroundColor: PRIMARY_RED }}>
                     <User size={16} />
-                    <span>
-                      {user.full_name?.split(" ")[0] || user.username}
-                    </span>
+                    <span>{user.full_name?.split(" ")[0] || user.email?.split("@")[0]}</span>
                   </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="w-10 h-10 rounded-full bg-gray-100 text-red-500"
-                  >
+                  <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-gray-100 text-red-500">
                     <LogOut size={18} />
                   </button>
                 </div>
               ) : (
-                <Link
-                  to="/login"
-                  className="ml-2 px-4 py-2 bg-orange-500 text-white rounded-full flex items-center gap-2"
-                >
+                <Link to="/login" className="ml-2 px-4 py-2 text-white rounded-full flex items-center gap-2" style={{ backgroundColor: PRIMARY_RED }}>
                   <User size={16} /> Login
                 </Link>
               )}
 
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden w-10 h-10 rounded-full bg-gray-100"
-              >
+              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden w-10 h-10 rounded-full bg-gray-100">
                 {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
@@ -574,21 +538,11 @@ const HomePage = () => {
           {isMenuOpen && (
             <div className="md:hidden mt-4 pb-4 border-t pt-4">
               <div className="flex flex-col space-y-3">
-                <Link to="/" className="text-gray-700">
-                  Home
-                </Link>
-                <Link to="/menu" className="text-gray-700">
-                  Menu
-                </Link>
-                <Link to="/promo" className="text-gray-700">
-                  Promo
-                </Link>
-                <Link to="/location" className="text-gray-700">
-                  Location
-                </Link>
-                <Link to="/contact" className="text-gray-700">
-                  Contact
-                </Link>
+                <Link to="/" className="text-gray-700">Home</Link>
+                <Link to="/menu" className="text-gray-700">Menu</Link>
+                <Link to="/promo" className="text-gray-700">Promo</Link>
+                <Link to="/location" className="text-gray-700">Location</Link>
+                <Link to="/contact" className="text-gray-700">Contact</Link>
               </div>
             </div>
           )}
@@ -605,19 +559,13 @@ const HomePage = () => {
               className="w-full h-64 md:h-80 object-cover"
             />
             <button
-              onClick={() =>
-                setCurrentBannerSlide(
-                  (prev) => (prev - 1 + banners.length) % banners.length,
-                )
-              }
+              onClick={() => setCurrentBannerSlide((prev) => (prev - 1 + banners.length) % banners.length)}
               className="absolute top-1/2 left-4 bg-black bg-opacity-40 text-white p-2 rounded-full"
             >
               <ChevronLeft size={24} />
             </button>
             <button
-              onClick={() =>
-                setCurrentBannerSlide((prev) => (prev + 1) % banners.length)
-              }
+              onClick={() => setCurrentBannerSlide((prev) => (prev + 1) % banners.length)}
               className="absolute top-1/2 right-4 bg-black bg-opacity-40 text-white p-2 rounded-full"
             >
               <ChevronRight size={24} />
@@ -637,7 +585,7 @@ const HomePage = () => {
 
       {/* INFO STORE */}
       <section className="w-full max-w-7xl mx-auto mt-8 px-4">
-        <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white">
+        <div className="rounded-2xl p-6 text-white" style={{ background: `linear-gradient(to right, ${PRIMARY_RED}, #8B1A1F)` }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center gap-4">
               <ClockIcon size={28} />
@@ -664,30 +612,26 @@ const HomePage = () => {
         </div>
       </section>
 
-      
       {/* HERO SECTION - BEST DEALS */}
-<section className="w-full max-w-7xl mx-auto mt-12 px-4">
-  <div className="text-center mb-8">
-    <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
-      🎉 <span className="text-orange-600">Paket Hemat</span> Spesial 🎉
-    </h2>
-    <p className="text-gray-500 mt-2">Dapatkan penawaran terbaik dengan harga lebih murah!</p>
-  </div>
-  
-  {/* PAKAI INI - Grid 4 kolom dengan center */}
-  <div className="flex justify-center">
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-cols-max">
-      {featuredCombos.map((combo) => (
-        <ComboCard key={combo.id} combo={combo} onOrderNow={handleOrderCombo} />
-      ))}
-    </div>
-  </div>
-</section>
+      <section className="w-full max-w-7xl mx-auto mt-12 px-4">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
+            🎉 <span style={{ color: PRIMARY_RED }}>Paket Hemat</span> Spesial 🎉
+          </h2>
+          <p className="text-gray-500 mt-2">Dapatkan penawaran terbaik dengan harga lebih murah!</p>
+        </div>
+
+        <div className="flex justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-cols-max">
+            {featuredCombos.map((combo) => (
+              <ComboCard key={combo.id} combo={combo} onOrderNow={handleOrderCombo} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* PRODUCTS SECTION */}
-      <section
-        ref={productsSectionRef}
-        className="w-full max-w-7xl mx-auto mt-12 px-4 pb-12"
-      >
+      <section ref={productsSectionRef} className="w-full max-w-7xl mx-auto mt-12 px-4 pb-12">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-3xl font-bold text-gray-800">Menu Populer</h2>
@@ -703,11 +647,7 @@ const HomePage = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {currentProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={handleAddToCart}
-                />
+                <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
               ))}
             </div>
 
@@ -716,19 +656,17 @@ const HomePage = () => {
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-orange-600 border border-orange-200 disabled:opacity-50 hover:bg-orange-50"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white border disabled:opacity-50 hover:bg-red-50"
+                  style={{ color: PRIMARY_RED, borderColor: PRIMARY_RED }}
                 >
                   <ChevronLeft size={20} />
                 </button>
-                <span className="text-gray-600">
-                  Halaman {currentPage} dari {totalPages}
-                </span>
+                <span className="text-gray-600">Halaman {currentPage} dari {totalPages}</span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPages))
-                  }
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-orange-600 border border-orange-200 disabled:opacity-50 hover:bg-orange-50"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white border disabled:opacity-50 hover:bg-red-50"
+                  style={{ color: PRIMARY_RED, borderColor: PRIMARY_RED }}
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -740,14 +678,28 @@ const HomePage = () => {
 
       {/* TESTIMONIALS */}
       {testimonials.length > 0 && (
-        <section className="w-full bg-orange-50 py-12">
+        <section className="w-full bg-red-50 py-12">
           <div className="max-w-7xl mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-8">
-              Apa Kata Mereka?
-            </h2>
+            <h2 className="text-3xl font-bold text-center mb-8">Apa Kata Mereka?</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {testimonials.slice(0, 3).map((t) => (
-                <TestimonialCard key={t.id} testimonial={t} />
+                <div key={t.id} className="bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center" style={{ backgroundColor: `${PRIMARY_RED}20` }}>
+                      <User size={24} style={{ color: PRIMARY_RED }} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">{t.name}</h4>
+                      <div className="flex text-yellow-400">
+                        {[...Array(t.rating || 5)].map((_, i) => (
+                          <Star key={i} size={14} fill="currentColor" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 italic">"{t.comment}"</p>
+                  <p className="text-xs text-gray-400 mt-3">{t.date || "Baru saja"}</p>
+                </div>
               ))}
             </div>
           </div>
@@ -756,19 +708,17 @@ const HomePage = () => {
 
       {/* CTA SECTION */}
       <section className="w-full max-w-7xl mx-auto my-12 px-4">
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-8 text-center text-white">
+        <div className="rounded-2xl p-8 text-center text-white" style={{ background: `linear-gradient(to right, ${PRIMARY_RED}, #8B1A1F)` }}>
           <h2 className="text-3xl font-bold mb-3">Pesan Sekarang!</h2>
-          <p className="mb-6 opacity-90">
-            Nikmati kelezatan First Street Nashville Hot Chicken
-          </p>
+          <p className="mb-6 opacity-90">Nikmati kelezatan First Street Nashville Hot Chicken</p>
           <div className="flex flex-wrap justify-center gap-4">
-            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+            <button className="bg-white px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2" style={{ color: PRIMARY_RED }}>
               <Package size={20} /> GoFood
             </button>
-            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+            <button className="bg-white px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2" style={{ color: PRIMARY_RED }}>
               <Package size={20} /> ShopeeFood
             </button>
-            <button className="bg-white text-orange-600 px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2">
+            <button className="bg-white px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition flex items-center gap-2" style={{ color: PRIMARY_RED }}>
               <PhoneIcon size={20} /> Call Order
             </button>
           </div>
@@ -781,103 +731,49 @@ const HomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img
-                  src="/images/Logo.png"
-                  alt="Tenders PKU"
-                  className="w-10 h-10 rounded-full object-cover"
-                />
+                <img src="/images/Logo.png" alt="Tenders PKU" className="w-10 h-10 rounded-full object-cover" />
                 <div>
-                  <span className="font-bold text-lg text-orange-400">
-                    TENDERS
-                  </span>
+                  <span className="font-bold text-lg" style={{ color: PRIMARY_RED }}>TENDERS</span>
                   <span className="font-bold text-lg"> PKU</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-400">
-                First Street Nashville Hot Chicken pertama di Pekanbaru.
-              </p>
+              <p className="text-sm text-gray-400">First Street Nashville Hot Chicken pertama di Pekanbaru.</p>
             </div>
             <div>
-              <h3 className="font-bold mb-4 text-orange-400">Quick Links</h3>
+              <h3 className="font-bold mb-4" style={{ color: PRIMARY_RED }}>Quick Links</h3>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>
-                  <Link to="/about" className="hover:text-orange-400">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/faq" className="hover:text-orange-400">
-                    FAQ
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/contact" className="hover:text-orange-400">
-                    Contact
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/form-pengaduan"
-                    className="hover:text-orange-400 flex items-center gap-2"
-                  >
-                  Form Pengaduan & Saran
-                  </Link>
-                </li>
+                <li><Link to="/about" className="hover:text-red-400">About Us</Link></li>
+                <li><Link to="/faq" className="hover:text-red-400">FAQ</Link></li>
+                <li><Link to="/contact" className="hover:text-red-400">Contact</Link></li>
+                <li><Link to="/form-pengaduan" className="hover:text-red-400 flex items-center gap-2">📝 Form Pengaduan & Saran</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-bold mb-4 text-orange-400">Contact</h3>
+              <h3 className="font-bold mb-4" style={{ color: PRIMARY_RED }}>Contact</h3>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li className="flex items-center gap-2">
-                  <MapPinIcon size={14} /> {storeInfo.address}
-                </li>
-                <li className="flex items-center gap-2">
-                  <PhoneIcon size={14} /> {storeInfo.phone}
-                </li>
-                <li className="flex items-center gap-2">
-                  <ClockIcon size={14} /> {storeInfo.operational_hours}
-                </li>
+                <li className="flex items-center gap-2"><MapPinIcon size={14} /> {storeInfo.address}</li>
+                <li className="flex items-center gap-2"><PhoneIcon size={14} /> {storeInfo.phone}</li>
+                <li className="flex items-center gap-2"><ClockIcon size={14} /> {storeInfo.operational_hours}</li>
               </ul>
             </div>
             <div>
-              <h3 className="font-bold mb-4 text-orange-400">Follow Us</h3>
+              <h3 className="font-bold mb-4" style={{ color: PRIMARY_RED }}>Follow Us</h3>
               <div className="flex space-x-4">
-                <a
-                  href="https://instagram.com/tenders.pku"
-                  target="_blank"
-                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
-                >
-                  <Instagram size={18} />
-                </a>
-                <a
-                  href="#"
-                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
-                >
-                  <Facebook size={18} />
-                </a>
-                <a
-                  href="#"
-                  className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition"
-                >
-                  <Twitter size={18} />
-                </a>
+                <a href="https://instagram.com/tenders.pku" target="_blank" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-red-500 transition"><Instagram size={18} /></a>
+                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-red-500 transition"><Facebook size={18} /></a>
+                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-red-500 transition"><Twitter size={18} /></a>
               </div>
               <div className="mt-4">
                 <p className="text-sm text-gray-400">Delivery Partner:</p>
                 <div className="flex gap-3 mt-2">
-                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">
-                    GoFood
-                  </span>
-                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">
-                    ShopeeFood
-                  </span>
+                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">GoFood</span>
+                  <span className="text-xs bg-gray-800 px-3 py-1 rounded-full">ShopeeFood</span>
                 </div>
               </div>
             </div>
           </div>
           <div className="text-center text-gray-500 text-xs border-t border-gray-800 mt-8 pt-6">
-            © 2024 TENDERS PKU - First Street Nashville Hot Chicken. All rights
-            reserved.
+            © 2024 TENDERS PKU - First Street Nashville Hot Chicken. All rights reserved.
           </div>
         </div>
       </footer>

@@ -1,10 +1,10 @@
 // src/pages/OrderListPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import { ArrowLeft, PackageX, ShoppingBag, Clock, MapPin, CreditCard } from 'lucide-react';
 
-const API_URL = "http://127.0.0.1:8000/api";
+const PRIMARY_RED = "#B82329";
 
 const formatCurrency = (amount) => {
   const num = Number(amount ?? 0);
@@ -68,36 +68,56 @@ const OrderListPage = () => {
     }
   }, []);
 
-  // Fetch orders dari API
+  // Fetch orders dari Supabase
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    if (user) {
+      fetchOrders();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchOrders = async () => {
     setLoading(true);
-    const token = localStorage.getItem('token');
     
-    if (!token) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get(`${API_URL}/orders`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.data.success) {
-        setOrders(response.data.data);
-      }
+      // Fetch orders dengan user_id yang sesuai
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      // Fetch order items untuk setiap order
+      const ordersWithItems = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('order_items')
+            .select(`
+              *,
+              products (*)
+            `)
+            .eq('order_id', order.id);
+
+          if (itemsError) throw itemsError;
+          
+          return {
+            ...order,
+            items: itemsData || []
+          };
+        })
+      );
+
+      setOrders(ordersWithItems);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
-      if (error.response?.status === 401) {
-        console.log("Unauthorized, please login again");
-      }
     } finally {
       setLoading(false);
     }
@@ -126,7 +146,7 @@ const OrderListPage = () => {
     return (
       <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderBottomColor: PRIMARY_RED }}></div>
           <p className="text-gray-600">Memuat pesanan...</p>
         </div>
       </div>
@@ -138,7 +158,7 @@ const OrderListPage = () => {
       {/* Header */}
       <header className="w-full bg-white py-4 px-4 md:px-8 shadow-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto flex items-center relative">
-          <Link to="/" className="absolute left-0 text-gray-800 hover:text-orange-500 transition">
+          <Link to="/" className="absolute left-0 text-gray-800 transition" style={{ hover: { color: PRIMARY_RED } }}>
             <ArrowLeft size={24} />
           </Link>
           <h1 className="text-xl font-bold text-gray-800 text-center flex-grow">Riwayat Pesanan</h1>
@@ -148,8 +168,8 @@ const OrderListPage = () => {
       <main className="w-full max-w-4xl mx-auto p-4 md:p-6">
         {/* User Info */}
         {user && (
-          <div className="bg-orange-50 rounded-xl p-4 mb-6">
-            <p className="text-sm text-gray-600">Hi, <span className="font-semibold text-orange-600">{user.full_name || user.username}</span></p>
+          <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: `${PRIMARY_RED}10` }}>
+            <p className="text-sm text-gray-600">Hi, <span className="font-semibold" style={{ color: PRIMARY_RED }}>{user.full_name || user.email?.split('@')[0]}</span></p>
             <p className="text-xs text-gray-500 mt-1">{user.email}</p>
           </div>
         )}
@@ -162,9 +182,10 @@ const OrderListPage = () => {
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap ${
                 activeTab === tab 
-                  ? 'border-b-2 border-orange-500 text-orange-600' 
-                  : 'text-gray-500 hover:text-orange-600'
+                  ? 'border-b-2 text-red-600' 
+                  : 'text-gray-500 hover:text-red-600'
               }`}
+              style={activeTab === tab ? { borderBottomColor: PRIMARY_RED, color: PRIMARY_RED } : {}}
             >
               {tabLabels[tab] || tab}
             </button>
@@ -181,7 +202,7 @@ const OrderListPage = () => {
                   {/* Card Header */}
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                      <ShoppingBag className="text-orange-500" size={20} />
+                      <ShoppingBag size={20} style={{ color: PRIMARY_RED }} />
                       <div>
                         <p className="font-bold text-gray-800 text-sm">Order #{order.order_number}</p>
                         <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
@@ -195,29 +216,29 @@ const OrderListPage = () => {
                   </div>
 
                   {/* Card Body */}
-                  <Link to={`/order/${order.id}`} className="block p-4 hover:bg-orange-50 transition">
+                  <Link to={`/order/${order.id}`} className="block p-4 transition" style={{ hover: { backgroundColor: `${PRIMARY_RED}10` } }}>
                     <div className="flex items-center gap-4">
                       <img 
-                        src={firstItem?.product?.image_url || "/images/default-product.png"} 
-                        alt={firstItem?.product?.name || "Product"} 
+                        src={firstItem?.products?.image_url || "/images/default-product.png"} 
+                        alt={firstItem?.products?.name || "Product"} 
                         className="w-16 h-16 rounded-lg object-cover bg-gray-100"
                         onError={(e) => { e.target.src = "/images/default-product.png"; }}
                       />
                       <div className="flex-grow">
                         <p className="font-bold text-gray-900 leading-tight line-clamp-1">
-                          {firstItem?.product?.name || "Produk"}
+                          {firstItem?.products?.name || "Produk"}
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
                           Qty: {firstItem?.quantity || 0} x {formatCurrency(firstItem?.price || 0)}
                         </p>
                         {order.items?.length > 1 && (
-                          <p className="text-xs text-orange-500 mt-1">
+                          <p className="text-xs mt-1" style={{ color: PRIMARY_RED }}>
                             +{order.items.length - 1} produk lainnya
                           </p>
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-orange-600">{formatCurrency(order.total_amount)}</p>
+                        <p className="font-bold" style={{ color: PRIMARY_RED }}>{formatCurrency(order.total_amount)}</p>
                       </div>
                     </div>
                   </Link>
@@ -225,7 +246,7 @@ const OrderListPage = () => {
                   {/* Card Footer */}
                   <div className="p-4 border-t border-gray-100 flex justify-between items-center">
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                      {order.shipping_method === 'pickup' ? (
+                      {order.source === 'offline' ? (
                         <span className="flex items-center gap-1"><MapPin size={14} /> Ambil Sendiri</span>
                       ) : (
                         <span className="flex items-center gap-1"><MapPin size={14} /> Dikirim</span>
@@ -239,9 +260,13 @@ const OrderListPage = () => {
                       >
                         Detail
                       </Link>
-                      <button className="px-4 py-2 text-sm font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
+                      <Link 
+                        to="/"
+                        className="px-4 py-2 text-sm font-semibold text-white rounded-lg transition"
+                        style={{ backgroundColor: PRIMARY_RED }}
+                      >
                         Beli Lagi
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -253,7 +278,11 @@ const OrderListPage = () => {
               <PackageX className="mx-auto text-gray-300" size={64} />
               <h3 className="mt-4 text-xl font-bold text-gray-800">Belum Ada Pesanan</h3>
               <p className="mt-2 text-sm text-gray-500">Yuk, mulai pesan chicken tender favoritmu sekarang!</p>
-              <Link to="/" className="mt-6 inline-block px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl shadow-md hover:bg-orange-600 transition">
+              <Link 
+                to="/" 
+                className="mt-6 inline-block px-6 py-3 text-white font-semibold rounded-xl shadow-md transition"
+                style={{ backgroundColor: PRIMARY_RED }}
+              >
                 Mulai Belanja
               </Link>
             </div>

@@ -1,6 +1,6 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
-
+import {supabase} from './services/supabaseClient';
 // Layout
 import MainLayout from "./assets/components/MainLayout";
 import AuthLayout from "./assets/components/AuthLayout";

@@ -1,10 +1,8 @@
 // src/Pages/ProductManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { PlusCircle, Search, Edit, Trash2, Box, PackageX, CheckCircle, Flame, Sparkles } from 'lucide-react';
-import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import ProductForm from './ProductForm';
-
-const API_URL = "http://127.0.0.1:8000/api";
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -15,7 +13,6 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Warna merah primary
   const primaryRed = '#B82329';
 
   useEffect(() => {
@@ -26,17 +23,14 @@ const ProductManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching products from:', `${API_URL}/products`);
-      const response = await axios.get(`${API_URL}/products`);
-      console.log('Products response:', response.data);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
       
-      if (response.data.success) {
-        setProducts(response.data.data || []);
-      } else {
-        console.error("Failed to fetch products:", response.data.error);
-        setError(response.data.error);
-        setProducts([]);
-      }
+      setProducts(data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
       setError(error.message);
@@ -47,7 +41,7 @@ const ProductManagement = () => {
   };
 
   const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.status === 'active').length;
+  const activeProducts = products.filter(p => p.is_active === true).length;
   const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 20).length;
   const outOfStockProducts = products.filter(p => p.stock === 0).length;
 
@@ -72,73 +66,87 @@ const ProductManagement = () => {
   const handleDeleteProduct = async (id) => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus produk ini?`)) {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.delete(`${API_URL}/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (response.data.success) {
-          alert('Produk berhasil dihapus!');
-          fetchProducts();
-        } else {
-          alert(response.data.error || 'Gagal menghapus produk');
-        }
+        const { error } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        
+        alert('Produk berhasil dihapus!');
+        fetchProducts();
       } catch (error) {
         console.error("Error deleting product:", error);
-        alert(error.response?.data?.error || 'Gagal menghapus produk');
+        alert(error.message || 'Gagal menghapus produk');
       }
     }
   };
 
   const handleSubmitProduct = async (productData) => {
     try {
-      const token = localStorage.getItem('token');
-      let response;
+      let result;
       
       if (productData.id) {
-        response = await axios.put(`${API_URL}/products/${productData.id}`, productData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.data.success) {
-          alert('Produk berhasil diperbarui!');
-        }
+        // Update product
+        result = await supabase
+          .from('products')
+          .update({
+            name: productData.name,
+            description: productData.description,
+            price: productData.price,
+            category: productData.category,
+            stock: productData.stock,
+            image_url: productData.image_url,
+            is_popular: productData.is_popular || false,
+            is_new: productData.is_new || false,
+            is_active: productData.is_active !== false,
+            spice_level: productData.spice_level || 0,
+            updated_at: new Date()
+          })
+          .eq('id', productData.id);
+          
+        if (result.error) throw result.error;
+        alert('Produk berhasil diperbarui!');
       } else {
-        response = await axios.post(`${API_URL}/products`, productData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.data.success) {
-          alert('Produk berhasil ditambahkan!');
-        }
+        // Create new product
+        result = await supabase
+          .from('products')
+          .insert([{
+            name: productData.name,
+            description: productData.description,
+            price: productData.price,
+            category: productData.category,
+            stock: productData.stock || 0,
+            image_url: productData.image_url || null,
+            is_popular: productData.is_popular || false,
+            is_new: productData.is_new || false,
+            is_active: true,
+            spice_level: productData.spice_level || 0,
+            created_at: new Date(),
+            updated_at: new Date()
+          }]);
+          
+        if (result.error) throw result.error;
+        alert('Produk berhasil ditambahkan!');
       }
       
-      if (response.data.success) {
-        fetchProducts();
-        setIsFormOpen(false);
-      } else {
-        alert(response.data.error || 'Gagal menyimpan produk');
-      }
+      fetchProducts();
+      setIsFormOpen(false);
     } catch (error) {
       console.error("Error saving product:", error);
-      alert(error.response?.data?.error || 'Gagal menyimpan produk');
+      alert(error.message || 'Gagal menyimpan produk');
     }
   };
 
-  const getStatusClass = (status, stock) => {
-    if (status === 'inactive') return 'bg-gray-100 text-gray-800';
+  const getStatusClass = (isActive, stock) => {
+    if (!isActive) return 'bg-gray-100 text-gray-800';
     if (stock === 0) return 'bg-red-100 text-red-800';
     if (stock <= 20) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
   };
 
-  const getStatusText = (status, stock) => {
-    if (status === 'inactive') return 'Inactive';
+  const getStatusText = (isActive, stock) => {
+    if (!isActive) return 'Nonaktif';
     if (stock === 0) return 'Habis';
     if (stock <= 20) return 'Stok Rendah';
     return 'Aktif';
@@ -147,6 +155,7 @@ const ProductManagement = () => {
   const getCategoryBadgeClass = (category) => {
     const classes = {
       tender: 'bg-red-100 text-red-700',
+      wings: 'bg-orange-100 text-orange-700',
       mozzville: 'bg-red-100 text-red-700',
       sides: 'bg-yellow-100 text-yellow-700',
       beverages: 'bg-blue-100 text-blue-700',
@@ -158,6 +167,7 @@ const ProductManagement = () => {
   const getCategoryLabel = (category) => {
     const labels = {
       tender: 'Chicken Tender',
+      wings: 'Wings',
       mozzville: 'Hot Mozzville',
       sides: 'Sides',
       beverages: 'Beverages',
@@ -175,7 +185,7 @@ const ProductManagement = () => {
       <div className="p-6 bg-gray-50 min-h-screen">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           <p>Error: {error}</p>
-          <p className="text-sm mt-2">Pastikan backend Laravel berjalan di http://127.0.0.1:8000</p>
+          <p className="text-sm mt-2">Pastikan koneksi ke Supabase berjalan lancar</p>
           <button 
             onClick={fetchProducts}
             className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
@@ -189,7 +199,7 @@ const ProductManagement = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      {/* Header - warna merah */}
+      {/* Header */}
       <div className="flex justify-between items-center px-6 py-4 mb-8 bg-white rounded-xl shadow-lg border-b-4" style={{ borderColor: primaryRed }}>
         <h2 className="text-3xl font-extrabold tracking-wide" style={{ color: primaryRed }}>Manajemen Produk</h2>
         <button
@@ -204,7 +214,7 @@ const ProductManagement = () => {
         </button>
       </div>
 
-      {/* Stats Cards - border warna merah */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-md border-l-4 hover:shadow-lg transition" style={{ borderLeftColor: primaryRed }}>
           <div className="flex justify-between items-center">
@@ -251,9 +261,7 @@ const ProductManagement = () => {
             <input
               type="text"
               placeholder="Cari produk..."
-              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2"
-              style={{ focusRingColor: primaryRed }}
-              onFocus={(e) => e.target.style.setProperty('--tw-ring-color', primaryRed)}
+              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-red-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -261,9 +269,7 @@ const ProductManagement = () => {
           </div>
 
           <select
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 w-full md:w-48 bg-white text-gray-700"
-            style={{ focusRingColor: primaryRed }}
-            onFocus={(e) => e.target.style.setProperty('--tw-ring-color', primaryRed)}
+            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 w-full md:w-48 bg-white text-gray-700"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
@@ -276,7 +282,7 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* Products Table - Header warna merah */}
+      {/* Products Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
@@ -329,8 +335,8 @@ const ProductManagement = () => {
                       <td className="px-6 py-4 text-gray-600">{product.stock}</td>
                       <td className="px-6 py-4 font-semibold" style={{ color: primaryRed }}>{formatRupiah(product.price)}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(product.status, product.stock)}`}>
-                          {getStatusText(product.status, product.stock)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(product.is_active, product.stock)}`}>
+                          {getStatusText(product.is_active, product.stock)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">

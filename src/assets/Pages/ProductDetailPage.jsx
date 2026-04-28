@@ -1,8 +1,7 @@
 // src/Pages/ProductDetailPage.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../../services/supabaseClient";
 import {
   FaStar,
   FaChevronRight,
@@ -15,12 +14,10 @@ import {
 } from "react-icons/fa";
 import { ShoppingCart } from "lucide-react";
 import { FiHeart } from "react-icons/fi";
-import { getProduct, addToCart, getCartCount } from "../../services/api";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,8 +28,18 @@ const ProductDetailPage = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState("success");
+  const [user, setUser] = useState(null);
 
-  // Fetch product from database
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, []);
+
+  // Fetch product from Supabase
   useEffect(() => {
     fetchProduct();
     if (user) {
@@ -44,34 +51,23 @@ const ProductDetailPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getProduct(id);
-      console.log("Product data:", response.data);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
       
-      if (response.data.success && response.data.data) {
-        setProduct(response.data.data);
-        setMainImage(response.data.data.image_url || "/images/default-product.png");
+      if (data) {
+        setProduct(data);
+        setMainImage(data.image_url || "/images/default-product.png");
       } else {
         setError("Produk tidak ditemukan");
       }
     } catch (error) {
       console.error("Failed to fetch product:", error);
       setError("Gagal memuat data produk");
-      
-      // Dummy data for testing
-      const dummyProduct = {
-        id: parseInt(id),
-        name: "Original Chicken Tender",
-        description: "Chicken tender juicy crispy dengan bumbu original yang gurih dan lezat. Disajikan dengan saus pilihan.",
-        price: 25000,
-        original_price: 30000,
-        category: "tender",
-        stock: 99,
-        is_popular: true,
-        spice_level: 1,
-        image_url: "/images/original-tender.png",
-      };
-      setProduct(dummyProduct);
-      setMainImage("/images/original-tender.png");
     } finally {
       setLoading(false);
     }
@@ -79,10 +75,15 @@ const ProductDetailPage = () => {
 
   const fetchCartCount = async () => {
     try {
-      const response = await getCartCount();
-      if (response.data.success) {
-        setCartCount(response.data.data?.count || 0);
-      }
+      const { data, error } = await supabase
+        .from('carts')
+        .select('quantity')
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+      
+      const total = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      setCartCount(total);
     } catch (error) {
       console.error("Failed to fetch cart count:", error);
     }
@@ -125,20 +126,42 @@ const ProductDetailPage = () => {
     }
     
     try {
-      const response = await addToCart({
-        product_id: product.id,
-        quantity: quantity,
-      });
-      
-      if (response.data.success) {
-        setCartCount(prev => prev + quantity);
-        showAlert(`${quantity} x ${product.name} ditambahkan ke keranjang!`, "success");
+      // Cek apakah produk sudah ada di cart
+      const { data: existingCart, error: checkError } = await supabase
+        .from('carts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+      let result;
+      if (existingCart) {
+        // Update quantity
+        result = await supabase
+          .from('carts')
+          .update({ quantity: existingCart.quantity + quantity })
+          .eq('id', existingCart.id);
       } else {
-        showAlert(response.data.error || "Gagal menambahkan ke keranjang", "error");
+        // Insert new cart item
+        result = await supabase
+          .from('carts')
+          .insert([{
+            user_id: user.id,
+            product_id: product.id,
+            quantity: quantity,
+            price: product.price
+          }]);
       }
+
+      if (result.error) throw result.error;
+      
+      setCartCount(prev => prev + quantity);
+      showAlert(`${quantity} x ${product.name} ditambahkan ke keranjang!`, "success");
     } catch (error) {
       console.error("Failed to add to cart:", error);
-      showAlert(error.response?.data?.error || "Gagal menambahkan ke keranjang", "error");
+      showAlert(error.message || "Gagal menambahkan ke keranjang", "error");
     }
   };
 
@@ -157,7 +180,7 @@ const ProductDetailPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Memuat detail produk...</p>
         </div>
       </div>
@@ -171,7 +194,7 @@ const ProductDetailPage = () => {
           <div className="text-6xl mb-4">🍗</div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Produk Tidak Ditemukan</h1>
           <p className="text-gray-500 mb-6">{error || "Maaf, produk yang Anda cari tidak tersedia."}</p>
-          <Link to="/" className="px-6 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
+          <Link to="/" className="px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition">
             Kembali ke Beranda
           </Link>
         </div>
@@ -217,11 +240,11 @@ const ProductDetailPage = () => {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center text-sm text-gray-500">
-            <Link to="/" className="hover:text-orange-500">Home</Link>
+            <Link to="/" className="hover:text-red-500">Home</Link>
             <FaChevronRight className="mx-2 text-xs" />
-            <Link to="/menu" className="hover:text-orange-500">Menu</Link>
+            <Link to="/menu" className="hover:text-red-500">Menu</Link>
             <FaChevronRight className="mx-2 text-xs" />
-            <span className="text-orange-500 font-medium">{product.name}</span>
+            <span className="text-red-500 font-medium">{product.name}</span>
           </div>
         </div>
       </div>
@@ -246,7 +269,7 @@ const ProductDetailPage = () => {
                 </div>
               )}
               {discountPercent > 0 && (
-                <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
                   -{discountPercent}%
                 </div>
               )}
@@ -273,9 +296,9 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Price */}
-            <div className="bg-orange-50 rounded-2xl p-4">
+            <div className="bg-red-50 rounded-2xl p-4">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-orange-600">
+                <span className="text-3xl font-bold text-red-600">
                   {formatCurrency(product.price)}
                 </span>
                 {product.original_price && product.original_price > product.price && (
@@ -320,15 +343,15 @@ const ProductDetailPage = () => {
             {/* Delivery Info */}
             <div className="bg-gray-100 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-3 text-sm">
-                <FaTruck className="text-orange-500" />
+                <FaTruck className="text-red-500" />
                 <span className="text-gray-600">Pengiriman via GoFood & ShopeeFood</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <FaClock className="text-orange-500" />
+                <FaClock className="text-red-500" />
                 <span className="text-gray-600">Estimasi 15-30 menit</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <FaShieldAlt className="text-orange-500" />
+                <FaShieldAlt className="text-red-500" />
                 <span className="text-gray-600">Garansi kebersihan & keamanan makanan</span>
               </div>
             </div>
@@ -355,13 +378,13 @@ const ProductDetailPage = () => {
                   </button>
                 </div>
                 <span className="text-sm text-gray-500">
-                  Stok tersisa: <span className="font-semibold text-orange-600">{product.stock || 0}</span>
+                  Stok tersisa: <span className="font-semibold text-red-600">{product.stock || 0}</span>
                 </span>
               </div>
             </div>
 
             {/* Subtotal */}
-            <div className="bg-orange-50 rounded-2xl p-4">
+            <div className="bg-red-50 rounded-2xl p-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Subtotal ({quantity} item)</span>
                 <div className="text-right">
@@ -370,7 +393,7 @@ const ProductDetailPage = () => {
                       {formatCurrency(originalSubtotal)}
                     </span>
                   )}
-                  <span className="text-2xl font-bold text-orange-600">
+                  <span className="text-2xl font-bold text-red-600">
                     {formatCurrency(subtotal)}
                   </span>
                 </div>
@@ -382,14 +405,14 @@ const ProductDetailPage = () => {
               <button
                 onClick={handleBuyNow}
                 disabled={product.stock === 0}
-                className="flex-1 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Beli Langsung
               </button>
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="flex-1 py-4 border-2 border-orange-500 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-4 border-2 border-red-500 text-red-600 font-bold rounded-xl hover:bg-red-50 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShoppingCart size={18} /> Keranjang
               </button>
