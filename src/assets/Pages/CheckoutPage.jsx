@@ -111,15 +111,17 @@ const CheckoutPage = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('carts')
-        .select(`
+        .from("carts")
+        .select(
+          `
           *,
           products (*)
-        `)
-        .eq('user_id', user.id);
+        `,
+        )
+        .eq("user_id", user.id);
 
       if (error) throw error;
-      
+
       const items = data || [];
       setCartItems(items);
 
@@ -171,7 +173,8 @@ const CheckoutPage = () => {
           shopeepay: "ShopeePay",
           qris: "QRIS",
         };
-        paymentMethodValue = ewalletNames[selectedPayment.option] || selectedPayment.option;
+        paymentMethodValue =
+          ewalletNames[selectedPayment.option] || selectedPayment.option;
       } else if (selectedPayment.group === "bank") {
         const bankNames = {
           bca: "BCA",
@@ -179,7 +182,8 @@ const CheckoutPage = () => {
           bri: "BRI",
           bni: "BNI",
         };
-        paymentMethodValue = bankNames[selectedPayment.option] || selectedPayment.option;
+        paymentMethodValue =
+          bankNames[selectedPayment.option] || selectedPayment.option;
       } else {
         paymentMethodValue = "COD";
       }
@@ -187,52 +191,56 @@ const CheckoutPage = () => {
       // Generate order number
       const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-      // Simpan ke tabel orders
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          order_number: orderNumber,
-          user_id: user.id,
-          customer_name: user.full_name || user.email?.split('@')[0],
-          total_amount: totalPayment,
-          payment_method: paymentMethodValue,
-          source: 'offline',
-          status: 'pending',
-          notes: 'Pickup di toko',
-          created_at: new Date(),
-          updated_at: new Date()
-        }])
-        .select();
+      // PASTIKAN user.id adalah NUMBER/INTEGER, bukan STRING
+      // Di handlePlaceOrder
+      const userId = user?.id ? Number(user.id) : null;
 
-      if (orderError) throw orderError;
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert([
+          {
+            order_number: orderNumber,
+            user_id: userId, // ← pastikan ini number, bukan null
+            customer_name: user.full_name || user.email?.split("@")[0],
+            total_amount: totalPayment,
+            payment_method: paymentMethodValue,
+            source: "offline",
+            status: "pending",
+            notes: "Pickup di toko",
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ])
+        .select();
+      if (orderError) {
+        console.error("Order error:", orderError);
+        throw orderError;
+      }
 
       // Simpan ke tabel order_items
       for (const item of selectedProducts) {
-        const { error: itemError } = await supabase
-          .from('order_items')
-          .insert([{
+        const { error: itemError } = await supabase.from("order_items").insert([
+          {
             order_id: orderData[0].id,
-            product_id: item.product_id,
+            product_id: Number(item.product_id), // ← Pastikan number juga
             quantity: item.quantity,
             price: item.products?.price,
-            created_at: new Date()
-          }]);
+            created_at: new Date(),
+          },
+        ]);
 
         if (itemError) throw itemError;
       }
 
       // Hapus item dari cart
       for (const item of selectedProducts) {
-        await supabase
-          .from('carts')
-          .delete()
-          .eq('id', item.id);
+        await supabase.from("carts").delete().eq("id", item.id);
       }
 
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Failed to place order:", error);
-      alert(error.message || "Gagal memproses pesanan");
+      alert("Gagal memproses pesanan: " + error.message);
     }
   };
 
@@ -252,7 +260,10 @@ const CheckoutPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4" style={{ borderBottomColor: PRIMARY_RED }}></div>
+        <div
+          className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4"
+          style={{ borderBottomColor: PRIMARY_RED }}
+        ></div>
       </div>
     );
   }
@@ -278,9 +289,16 @@ const CheckoutPage = () => {
                   style={{ borderColor: PRIMARY_RED }}
                 />
                 <div>
-                  <span className="font-bold text-xl" style={{ color: PRIMARY_RED }}>TENDERS</span>
+                  <span
+                    className="font-bold text-xl"
+                    style={{ color: PRIMARY_RED }}
+                  >
+                    TENDERS
+                  </span>
                   <span className="font-bold text-xl text-gray-800"> PKU</span>
-                  <p className="text-xs text-gray-500 -mt-1">First Street Nashville Hot Chicken</p>
+                  <p className="text-xs text-gray-500 -mt-1">
+                    First Street Nashville Hot Chicken
+                  </p>
                 </div>
               </Link>
 
@@ -290,34 +308,62 @@ const CheckoutPage = () => {
                   placeholder="Cari menu favoritmu..."
                   className="w-full pl-4 pr-10 py-2 rounded-full bg-gray-100"
                 />
-                <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
               </div>
 
               <div className="flex items-center space-x-2">
-                <Link to="/cart" className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
+                <Link
+                  to="/cart"
+                  className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"
+                  style={{ color: PRIMARY_RED }}
+                >
                   <ShoppingCart size={20} />
                 </Link>
-                <Link to="/notifications" className="w-10 h-10 rounded-full bg-gray-100" style={{ color: PRIMARY_RED }}>
+                <Link
+                  to="/notifications"
+                  className="w-10 h-10 rounded-full bg-gray-100"
+                  style={{ color: PRIMARY_RED }}
+                >
                   <Bell size={20} />
                 </Link>
 
                 {user ? (
                   <div className="flex items-center space-x-2 ml-2">
-                    <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-white rounded-full" style={{ backgroundColor: PRIMARY_RED }}>
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 px-3 py-2 text-white rounded-full"
+                      style={{ backgroundColor: PRIMARY_RED }}
+                    >
                       <User size={16} />
-                      <span>{user.full_name?.split(" ")[0] || user.email?.split("@")[0]}</span>
+                      <span>
+                        {user.full_name?.split(" ")[0] ||
+                          user.email?.split("@")[0]}
+                      </span>
                     </Link>
-                    <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-gray-100 text-red-500">
+                    <button
+                      onClick={handleLogout}
+                      className="w-10 h-10 rounded-full bg-gray-100 text-red-500"
+                    >
                       <LogOut size={18} />
                     </button>
                   </div>
                 ) : (
-                  <Link to="/login" className="ml-2 px-4 py-2 text-white rounded-full flex items-center gap-2" style={{ backgroundColor: PRIMARY_RED }}>
+                  <Link
+                    to="/login"
+                    className="ml-2 px-4 py-2 text-white rounded-full flex items-center gap-2"
+                    style={{ backgroundColor: PRIMARY_RED }}
+                  >
                     <User size={16} /> Login
                   </Link>
                 )}
 
-                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden w-10 h-10 rounded-full bg-gray-100">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="md:hidden w-10 h-10 rounded-full bg-gray-100"
+                >
                   {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
               </div>
@@ -330,7 +376,9 @@ const CheckoutPage = () => {
           <div className="flex items-center justify-center text-sm text-gray-400 mb-8">
             <span>Keranjang</span>
             <ChevronRight size={16} className="mx-2" />
-            <span className="font-bold" style={{ color: PRIMARY_RED }}>Checkout</span>
+            <span className="font-bold" style={{ color: PRIMARY_RED }}>
+              Checkout
+            </span>
             <ChevronRight size={16} className="mx-2" />
             <span>Pembayaran</span>
           </div>
@@ -339,9 +387,19 @@ const CheckoutPage = () => {
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-6">
               {/* Pickup Info */}
-              <div className="p-6 rounded-xl border" style={{ backgroundColor: `${PRIMARY_RED}10`, borderColor: PRIMARY_RED }}>
+              <div
+                className="p-6 rounded-xl border"
+                style={{
+                  backgroundColor: `${PRIMARY_RED}10`,
+                  borderColor: PRIMARY_RED,
+                }}
+              >
                 <h2 className="text-xl font-bold text-gray-800 flex items-center mb-4">
-                  <Store className="mr-3" size={24} style={{ color: PRIMARY_RED }} />
+                  <Store
+                    className="mr-3"
+                    size={24}
+                    style={{ color: PRIMARY_RED }}
+                  />
                   Ambil Sendiri (Pickup)
                 </h2>
                 <div className="text-gray-700">
@@ -354,16 +412,30 @@ const CheckoutPage = () => {
                   <p className="text-sm text-gray-500 mt-2">
                     ⚠️ Harap bawa bukti pesanan saat mengambil
                   </p>
-                  <div className="mt-4 p-3 bg-white rounded-lg border" style={{ borderColor: `${PRIMARY_RED}30` }}>
-                    <p className="text-sm font-semibold mb-2" style={{ color: PRIMARY_RED }}>
+                  <div
+                    className="mt-4 p-3 bg-white rounded-lg border"
+                    style={{ borderColor: `${PRIMARY_RED}30` }}
+                  >
+                    <p
+                      className="text-sm font-semibold mb-2"
+                      style={{ color: PRIMARY_RED }}
+                    >
                       🛵 Pengiriman via Aplikasi Partner:
                     </p>
                     <div className="flex gap-3">
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">GoFood</span>
-                      <span className="px-3 py-1 text-white rounded-full text-xs font-semibold" style={{ backgroundColor: PRIMARY_RED }}>ShopeeFood</span>
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        GoFood
+                      </span>
+                      <span
+                        className="px-3 py-1 text-white rounded-full text-xs font-semibold"
+                        style={{ backgroundColor: PRIMARY_RED }}
+                      >
+                        ShopeeFood
+                      </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Untuk pengiriman, silakan pesan melalui aplikasi GoFood atau ShopeeFood
+                      Untuk pengiriman, silakan pesan melalui aplikasi GoFood
+                      atau ShopeeFood
                     </p>
                   </div>
                 </div>
@@ -372,7 +444,11 @@ const CheckoutPage = () => {
               {/* Metode Pembayaran */}
               <div className="bg-white p-6 rounded-xl shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <CreditCard className="mr-3" size={24} style={{ color: PRIMARY_RED }} />
+                  <CreditCard
+                    className="mr-3"
+                    size={24}
+                    style={{ color: PRIMARY_RED }}
+                  />
                   Metode Pembayaran
                 </h2>
                 <div className="space-y-3">
@@ -382,21 +458,38 @@ const CheckoutPage = () => {
                         ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    style={selectedPayment.group === "ewallet" ? { borderColor: PRIMARY_RED, backgroundColor: `${PRIMARY_RED}10` } : {}}
-                    onClick={() => setSelectedPayment({ group: "ewallet", option: "gopay" })}
+                    style={
+                      selectedPayment.group === "ewallet"
+                        ? {
+                            borderColor: PRIMARY_RED,
+                            backgroundColor: `${PRIMARY_RED}10`,
+                          }
+                        : {}
+                    }
+                    onClick={() =>
+                      setSelectedPayment({ group: "ewallet", option: "gopay" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Wallet className="mr-3 text-blue-500" size={20} /> E-Wallet / QRIS
+                      <Wallet className="mr-3 text-blue-500" size={20} />{" "}
+                      E-Wallet / QRIS
                     </p>
                     {selectedPayment.group === "ewallet" && (
                       <div className="mt-4 pl-8">
                         <select
                           value={selectedPayment.option}
-                          onChange={(e) => setSelectedPayment({ ...selectedPayment, option: e.target.value })}
+                          onChange={(e) =>
+                            setSelectedPayment({
+                              ...selectedPayment,
+                              option: e.target.value,
+                            })
+                          }
                           className="w-full p-2 border rounded-lg focus:ring-orange-500"
                         >
                           {paymentOptions.ewallet.map((opt) => (
-                            <option key={opt.id} value={opt.id}>{opt.icon} {opt.name}</option>
+                            <option key={opt.id} value={opt.id}>
+                              {opt.icon} {opt.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -408,21 +501,38 @@ const CheckoutPage = () => {
                         ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    style={selectedPayment.group === "bank" ? { borderColor: PRIMARY_RED, backgroundColor: `${PRIMARY_RED}10` } : {}}
-                    onClick={() => setSelectedPayment({ group: "bank", option: "bca" })}
+                    style={
+                      selectedPayment.group === "bank"
+                        ? {
+                            borderColor: PRIMARY_RED,
+                            backgroundColor: `${PRIMARY_RED}10`,
+                          }
+                        : {}
+                    }
+                    onClick={() =>
+                      setSelectedPayment({ group: "bank", option: "bca" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Landmark className="mr-3 text-purple-500" size={20} /> Transfer Bank (Virtual Account)
+                      <Landmark className="mr-3 text-purple-500" size={20} />{" "}
+                      Transfer Bank (Virtual Account)
                     </p>
                     {selectedPayment.group === "bank" && (
                       <div className="mt-4 pl-8">
                         <select
                           value={selectedPayment.option}
-                          onChange={(e) => setSelectedPayment({ ...selectedPayment, option: e.target.value })}
+                          onChange={(e) =>
+                            setSelectedPayment({
+                              ...selectedPayment,
+                              option: e.target.value,
+                            })
+                          }
                           className="w-full p-2 border rounded-lg focus:ring-orange-500"
                         >
                           {paymentOptions.bank.map((opt) => (
-                            <option key={opt.id} value={opt.id}>{opt.icon} {opt.name}</option>
+                            <option key={opt.id} value={opt.id}>
+                              {opt.icon} {opt.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -434,11 +544,21 @@ const CheckoutPage = () => {
                         ? "border-orange-500 bg-orange-50"
                         : "border-gray-200"
                     }`}
-                    style={selectedPayment.group === "cod" ? { borderColor: PRIMARY_RED, backgroundColor: `${PRIMARY_RED}10` } : {}}
-                    onClick={() => setSelectedPayment({ group: "cod", option: "cod" })}
+                    style={
+                      selectedPayment.group === "cod"
+                        ? {
+                            borderColor: PRIMARY_RED,
+                            backgroundColor: `${PRIMARY_RED}10`,
+                          }
+                        : {}
+                    }
+                    onClick={() =>
+                      setSelectedPayment({ group: "cod", option: "cod" })
+                    }
                   >
                     <p className="font-bold text-gray-800 flex items-center">
-                      <Building className="mr-3 text-green-500" size={20} /> COD (Bayar di Tempat)
+                      <Building className="mr-3 text-green-500" size={20} /> COD
+                      (Bayar di Tempat)
                     </p>
                   </div>
                 </div>
@@ -449,28 +569,51 @@ const CheckoutPage = () => {
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow-sm p-6 sticky top-28">
                 <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <ShoppingCart className="mr-3" size={24} style={{ color: PRIMARY_RED }} />
+                  <ShoppingCart
+                    className="mr-3"
+                    size={24}
+                    style={{ color: PRIMARY_RED }}
+                  />
                   Ringkasan Pesanan
                 </h2>
 
                 <div className="space-y-4 border-b pb-4 mb-4 max-h-60 overflow-y-auto">
                   {selectedProducts.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4">Tidak ada produk dipilih</p>
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      Tidak ada produk dipilih
+                    </p>
                   ) : (
                     selectedProducts.map((item) => (
-                      <div key={item.id} className="flex items-start gap-3 pb-3 border-b last:border-b-0">
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3 pb-3 border-b last:border-b-0"
+                      >
                         <img
-                          src={item.products?.image_url || "/images/default-product.png"}
+                          src={
+                            item.products?.image_url ||
+                            "/images/default-product.png"
+                          }
                           alt={item.products?.name}
                           className="w-12 h-12 rounded-lg object-cover bg-gray-100"
-                          onError={(e) => { e.target.src = "/images/default-product.png"; }}
+                          onError={(e) => {
+                            e.target.src = "/images/default-product.png";
+                          }}
                         />
                         <div className="flex-grow">
-                          <p className="text-sm font-semibold text-gray-800 line-clamp-1">{item.products?.name}</p>
-                          <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                          <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                            {item.products?.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Qty: {item.quantity}
+                          </p>
                         </div>
-                        <p className="text-sm font-semibold" style={{ color: PRIMARY_RED }}>
-                          {formatCurrency((item.products?.price || 0) * item.quantity)}
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: PRIMARY_RED }}
+                        >
+                          {formatCurrency(
+                            (item.products?.price || 0) * item.quantity,
+                          )}
                         </p>
                       </div>
                     ))
@@ -490,7 +633,10 @@ const CheckoutPage = () => {
 
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
                   <span className="text-lg font-bold text-gray-900">Total</span>
-                  <span className="text-2xl font-extrabold" style={{ color: PRIMARY_RED }}>
+                  <span
+                    className="text-2xl font-extrabold"
+                    style={{ color: PRIMARY_RED }}
+                  >
                     {formatCurrency(totalPayment)}
                   </span>
                 </div>
@@ -507,7 +653,11 @@ const CheckoutPage = () => {
                 <div className="mt-4 text-center">
                   <p className="text-xs text-gray-400">
                     Dengan melanjutkan, Anda menyetujui{" "}
-                    <Link to="/terms" className="hover:underline" style={{ color: PRIMARY_RED }}>
+                    <Link
+                      to="/terms"
+                      className="hover:underline"
+                      style={{ color: PRIMARY_RED }}
+                    >
                       Syarat & Ketentuan
                     </Link>{" "}
                     yang berlaku
@@ -521,8 +671,12 @@ const CheckoutPage = () => {
         <footer className="w-full bg-gray-900 text-white py-6 mt-8">
           <div className="text-center text-sm">
             <p>© 2024 TENDERS PKU - First Street Nashville Hot Chicken</p>
-            <p className="mt-1 text-gray-400">Jl. Hangtuah (Depan Plaza Kado), Pekanbaru</p>
-            <p className="mt-1 text-xs text-gray-500">Tersedia di GoFood & ShopeeFood</p>
+            <p className="mt-1 text-gray-400">
+              Jl. Hangtuah (Depan Plaza Kado), Pekanbaru
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Tersedia di GoFood & ShopeeFood
+            </p>
           </div>
         </footer>
       </div>

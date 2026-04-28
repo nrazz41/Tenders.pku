@@ -136,7 +136,7 @@ const ProductCard = ({ product, onAddToCart }) => {
 // ============================================
 // COMPONENT: Combo Card
 // ============================================
-const ComboCard = ({ combo, onOrderNow }) => {
+const ComboCard = ({ combo, onAddToCart }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const getItemsList = () => {
@@ -150,6 +150,15 @@ const ComboCard = ({ combo, onOrderNow }) => {
   };
 
   const itemsList = getItemsList();
+
+  // Format combo menjadi format product
+  const comboAsProduct = {
+  id: 22,  // ← ganti dengan id produk combo yang ada di tabel products
+  name: combo.name,
+  price: combo.price,
+  image_url: combo.image_url,
+  description: combo.description || 'Paket hemat spesial'
+};
 
   return (
     <div
@@ -180,15 +189,10 @@ const ComboCard = ({ combo, onOrderNow }) => {
           <h3 className="font-bold text-xl text-gray-800">{combo.name}</h3>
         </div>
 
-        {itemsList.length > 0 && (
-          <div className="mb-3 space-y-1">
-            {itemsList.map((item, idx) => (
-              <p key={idx} className="text-gray-600 text-sm font-medium">
-                {item.item} {item.quantity && `(${item.quantity}pcs)`}
-              </p>
-            ))}
-          </div>
-        )}
+        {/* Tampilkan items combo */}
+        <div className="mb-3 space-y-1">
+          <p className="text-gray-600 text-sm font-medium">3 Chicken Tender + 2 Spicy Wings</p>
+        </div>
 
         <div className="flex items-baseline gap-2 justify-center mt-auto">
           <span className="font-bold text-2xl" style={{ color: PRIMARY_RED }}>
@@ -201,18 +205,18 @@ const ComboCard = ({ combo, onOrderNow }) => {
           )}
         </div>
 
+        {/* Tombol panggil handleAddToCart seperti produk biasa */}
         <button
-          onClick={() => onOrderNow && onOrderNow(combo)}
+          onClick={() => onAddToCart && onAddToCart(comboAsProduct)}
           className="w-full mt-4 py-3 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
           style={{ background: `linear-gradient(to right, ${PRIMARY_RED}, #8B1A1F)` }}
         >
-          <Zap size={18} /> Pesan Sekarang
+          <Zap size={18} /> Tambah ke Keranjang
         </button>
       </div>
     </div>
   );
 };
-
 // ============================================
 // MAIN COMPONENT: HomePage
 // ============================================
@@ -275,24 +279,24 @@ const HomePage = () => {
   }, []);
 
   // Fetch cart count
-  const fetchCartCount = async () => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
+  // const fetchCartCount = async () => {
+  //   const storedUser = localStorage.getItem("user");
+  //   if (!storedUser) return;
     
-    const userData = JSON.parse(storedUser);
-    try {
-      const { data, error } = await supabase
-        .from('carts')
-        .select('quantity')
-        .eq('user_id', userData.id);
+  //   const userData = JSON.parse(storedUser);
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('carts')
+  //       .select('quantity')
+  //       .eq('user_id', userData.id);
 
-      if (error) throw error;
-      const total = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      setCartCount(total);
-    } catch (error) {
-      console.error("Failed to fetch cart:", error);
-    }
-  };
+  //     if (error) throw error;
+  //     const total = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  //     setCartCount(total);
+  //   } catch (error) {
+  //     console.error("Failed to fetch cart:", error);
+  //   }
+  // };
 
   // Fetch all data
   const fetchAllData = async () => {
@@ -371,59 +375,178 @@ const HomePage = () => {
   }, [user]);
 
   // Add to cart
-  const handleAddToCart = async (product) => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      alert("Silakan login terlebih dahulu");
-      navigate("/login");
-      return;
-    }
+  // Perbaiki bagian Add to cart
+const handleAddToCart = async (product) => {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) {
+    alert("Silakan login terlebih dahulu");
+    navigate("/login");
+    return;
+  }
 
-    const userData = JSON.parse(storedUser);
+  const userData = JSON.parse(storedUser);
+  
+  // Pastikan userData.id ada (integer dari tabel users)
+  if (!userData.id) {
+    alert("Data user tidak valid, silakan login ulang");
+    navigate("/login");
+    return;
+  }
 
-    try {
-      // Check if product already in cart
-      const { data: existing } = await supabase
+  try {
+    // Check if product already in cart
+    const { data: existing, error: checkError } = await supabase
+      .from('carts')
+      .select('*')
+      .eq('user_id', userData.id)
+      .eq('product_id', product.id)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+    if (existing) {
+      // Update quantity
+      const { error } = await supabase
         .from('carts')
-        .select('*')
-        .eq('user_id', userData.id)
-        .eq('product_id', product.id)
-        .maybeSingle();
-
-      if (existing) {
-        // Update quantity
-        await supabase
-          .from('carts')
-          .update({ quantity: existing.quantity + 1 })
-          .eq('id', existing.id);
-      } else {
-        // Insert new
-        await supabase
-          .from('carts')
-          .insert([{
-            user_id: userData.id,
-            product_id: product.id,
-            quantity: 1,
-            price: product.price
-          }]);
-      }
-
-      await fetchCartCount();
-      alert(`✅ ${product.name} ditambahkan ke keranjang!`);
-    } catch (error) {
-      console.error("Failed to add to cart:", error);
-      alert("Gagal menambahkan ke keranjang");
+        .update({ quantity: existing.quantity + 1 })
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      // Insert new
+      const { error } = await supabase
+        .from('carts')
+        .insert([{
+          user_id: userData.id,
+          product_id: product.id,
+          quantity: 1,
+          price: product.price
+        }]);
+      if (error) throw error;
     }
-  };
 
-  const handleOrderCombo = (combo) => {
-    if (!user) {
-      alert("Silakan login terlebih dahulu");
-      navigate("/login");
-      return;
-    }
-    alert(`🛒 ${combo.name} akan ditambahkan ke keranjang!`);
+    await fetchCartCount();
+    alert(`✅ ${product.name} ditambahkan ke keranjang!`);
+  } catch (error) {
+    console.error("Failed to add to cart:", error);
+    alert("Gagal menambahkan ke keranjang: " + error.message);
+  }
+};
+
+// Perbaiki handleOrderCombo - tambahkan ke keranjang
+// const handleOrderCombo = async (combo) => {
+//   const storedUser = localStorage.getItem("user");
+//   if (!storedUser) {
+//     alert("Silakan login terlebih dahulu");
+//     navigate("/login");
+//     return;
+//   }
+
+//   const userData = JSON.parse(storedUser);
+  
+//   if (!userData.id) {
+//     alert("Data user tidak valid, silakan login ulang");
+//     navigate("/login");
+//     return;
+//   }
+
+//   try {
+//     // Parse items dari combo
+//     let itemsList = [];
+//     if (combo.items) {
+//       try {
+//         itemsList = typeof combo.items === 'string' ? JSON.parse(combo.items) : combo.items;
+//       } catch(e) {
+//         itemsList = [{ item: combo.items, quantity: 1 }];
+//       }
+//     }
+
+//     // Untuk setiap item dalam combo, tambahkan ke cart
+//     // Karena combo tidak punya product_id, kita asumsikan item adalah nama produk
+//     // Cari product berdasarkan nama
+//     for (const item of itemsList) {
+//       const { data: product, error: productError } = await supabase
+//         .from('products')
+//         .select('id, price')
+//         .ilike('name', `%${item.item}%`)
+//         .limit(1)
+//         .single();
+
+//       if (productError) {
+//         console.warn(`Produk ${item.item} tidak ditemukan, skip`);
+//         continue;
+//       }
+
+//       // Cek apakah sudah ada di cart
+//       const { data: existing, error: checkError } = await supabase
+//         .from('carts')
+//         .select('*')
+//         .eq('user_id', userData.id)
+//         .eq('product_id', product.id)
+//         .maybeSingle();
+
+//       if (existing) {
+//         await supabase
+//           .from('carts')
+//           .update({ quantity: existing.quantity + (item.quantity || 1) })
+//           .eq('id', existing.id);
+//       } else {
+//         await supabase
+//           .from('carts')
+//           .insert([{
+//             user_id: userData.id,
+//             product_id: product.id,
+//             quantity: item.quantity || 1,
+//             price: product.price
+//           }]);
+//       }
+//     }
+
+//     await fetchCartCount();
+//     alert(`✅ ${combo.name} berhasil ditambahkan ke keranjang!`);
+//   } catch (error) {
+//     console.error("Failed to add combo to cart:", error);
+//     alert("Gagal menambahkan combo ke keranjang: " + error.message);
+//   }
+// };
+
+// Perbaiki fetchCartCount
+const fetchCartCount = async () => {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) return;
+  
+  const userData = JSON.parse(storedUser);
+  
+  // Pastikan userData.id ada (integer)
+  if (!userData.id) {
+    console.warn("User ID not found");
+    return;
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('carts')
+      .select('quantity')
+      .eq('user_id', userData.id);
+
+    if (error) throw error;
+    const total = data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+    setCartCount(total);
+  } catch (error) {
+    console.error("Failed to fetch cart:", error);
+  }
+};
+
+const handleOrderCombo = async (combo) => {
+  // Anggap combo sebagai produk biasa
+  const product = {
+    id: combo.id,
+    name: combo.name,
+    price: combo.price,
   };
+  
+  // Panggil handleAddToCart dengan format product
+  await handleAddToCart(product);
+};
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -612,23 +735,27 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* HERO SECTION - BEST DEALS */}
-      <section className="w-full max-w-7xl mx-auto mt-12 px-4">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
-            🎉 <span style={{ color: PRIMARY_RED }}>Paket Hemat</span> Spesial 🎉
-          </h2>
-          <p className="text-gray-500 mt-2">Dapatkan penawaran terbaik dengan harga lebih murah!</p>
-        </div>
+     {/* HERO SECTION - BEST DEALS */}
+<section className="w-full max-w-7xl mx-auto mt-12 px-4">
+  <div className="text-center mb-8">
+    <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
+      🎉 <span style={{ color: PRIMARY_RED }}>Paket Hemat</span> Spesial 🎉
+    </h2>
+    <p className="text-gray-500 mt-2">Dapatkan penawaran terbaik dengan harga lebih murah!</p>
+  </div>
 
-        <div className="flex justify-center">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-cols-max">
-            {featuredCombos.map((combo) => (
-              <ComboCard key={combo.id} combo={combo} onOrderNow={handleOrderCombo} />
-            ))}
-          </div>
-        </div>
-      </section>
+  <div className="flex justify-center">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-cols-max">
+      {featuredCombos.map((combo) => (
+        <ComboCard 
+          key={combo.id} 
+          combo={combo} 
+          onAddToCart={handleAddToCart}  // ← ganti dari onOrderNow ke onAddToCart
+        />
+      ))}
+    </div>
+  </div>
+</section>
 
       {/* PRODUCTS SECTION */}
       <section ref={productsSectionRef} className="w-full max-w-7xl mx-auto mt-12 px-4 pb-12">
