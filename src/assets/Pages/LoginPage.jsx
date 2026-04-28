@@ -68,7 +68,7 @@ const LoginPage = () => {
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl font-bold" style={{ color: PRIMARY_RED }}>T</span>
+            <img src="/images/Logo.png" w-25 alt="" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800">TENDERS PKU</h1>
           <p className="text-gray-500 text-sm">First Street Nashville Hot Chicken</p>
@@ -128,11 +128,11 @@ const LoginPage = () => {
           </p>
         </div>
 
-        <div className="mt-4 p-3 bg-gray-50 rounded-xl">
+        {/* <div className="mt-4 p-3 bg-gray-50 rounded-xl">
           <p className="text-xs text-gray-500 font-semibold mb-2">🔐 AKUN DEMO:</p>
           <p className="text-xs text-gray-500">👑 Admin: admin / admin123</p>
           <p className="text-xs text-gray-500">👤 Customer: customer / customer123</p>
-        </div>
+        </div> */}
       </div>
     </div>
   );
